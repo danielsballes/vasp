@@ -67,7 +67,7 @@ async function exportAll() {
     }
     const paramsFile = t('files.params'), readmeFile = t('files.readme');
     const names = files.map((f) => f.name).concat([paramsFile, readmeFile]);
-    files.push({ name: paramsFile, data: JSON.stringify({ app: 'Torno Espiral', version: 1, params }, null, 2) });
+    files.push({ name: paramsFile, data: JSON.stringify({ app: 'Vasp', version: 1, params }, null, 2) });
     files.push({ name: readmeFile, data: readme({ p: params, ...model.value }, names, paramsFile, { t, nf }) });
     setStatus('exporting.zipping');
     await pause(20);

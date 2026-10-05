@@ -12,7 +12,7 @@ import { nf, t } from '../i18n/index.js';
 
 const STORE = 'torno-espiral-vue-v1';
 const VIEW_MODES = ['body', 'exploded', 'assembled'];
-const VIEW_DEFAULTS = { mode: 'exploded', heat: false, bodyColor: '#c9302a', capColor: '#d9a02a' };
+const VIEW_DEFAULTS = { mode: 'exploded', heat: false, bodyColor: '#c9962e', capColor: '#6b4a32' };
 const isColor = (v) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
 
 function load() {

@@ -35,7 +35,7 @@ export const removeDesign = (list, id) => list.filter((d) => d.id !== id);
 /* What gets written to storage and to a backup file. */
 export function serializeLibrary(list) {
   return {
-    app: 'Torno Espiral',
+    app: 'Vasp',
     kind: DESIGNS_KIND,
     version: DESIGNS_VERSION,
     designs: list.map((d) => ({ id: d.id, name: d.name, savedAt: new Date(d.savedAt).toISOString(), params: d.params })),

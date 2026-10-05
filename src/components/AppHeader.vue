@@ -12,14 +12,21 @@ const { busy, exportAll } = useExport();
 <template>
   <header class="app-top">
     <div class="brand">
-      <svg width="30" height="38" viewBox="0 0 30 38" aria-hidden="true">
-        <rect x="10" y="1" width="10" height="4" rx="1" fill="currentColor" />
-        <rect x="10" y="33" width="10" height="4" rx="1" fill="currentColor" />
-        <path d="M10 5h10l8 7v14l-8 7H10l-8-7V12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
-        <path d="M3 15h24M3 19h24M3 23h24" fill="none" stroke="currentColor" stroke-width="1.4" />
+      <!-- wasp: wings, head and thorax, and an abdomen crossed by three stripes -->
+      <svg width="32" height="38" viewBox="0 0 32 38" aria-hidden="true">
+        <defs>
+          <clipPath id="wasp-abdomen"><path d="M16 17.5c4.6 0 7.4 4 7.4 8.2 0 4.8-3.6 8.4-7.4 11.3-3.8-2.9-7.4-6.5-7.4-11.3 0-4.2 2.8-8.2 7.4-8.2z" /></clipPath>
+        </defs>
+        <path d="M14.4 4.6C13.6 2.6 12 1.4 10 1.2M17.6 4.6c.8-2 2.4-3.2 4.4-3.4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+        <ellipse cx="8.6" cy="11" rx="6.6" ry="3" transform="rotate(-24 8.6 11)" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <ellipse cx="23.4" cy="11" rx="6.6" ry="3" transform="rotate(24 23.4 11)" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <circle cx="16" cy="7.2" r="2.9" fill="currentColor" />
+        <ellipse cx="16" cy="13.4" rx="3.6" ry="3.4" fill="currentColor" />
+        <path d="M16 17.5c4.6 0 7.4 4 7.4 8.2 0 4.8-3.6 8.4-7.4 11.3-3.8-2.9-7.4-6.5-7.4-11.3 0-4.2 2.8-8.2 7.4-8.2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+        <path d="M6 22.6h20M6 26.6h20M6 30.6h20" clip-path="url(#wasp-abdomen)" fill="none" stroke="currentColor" stroke-width="2" />
       </svg>
       <div>
-        <h1>Torno Espiral</h1>
+        <h1>Vasp</h1>
         <p class="sub">{{ t('app.tagline') }}</p>
       </div>
     </div>

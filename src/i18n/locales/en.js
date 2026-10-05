@@ -195,7 +195,7 @@ export default {
     tooLarge: 'The file is too large for this device. Export at Normal or Draft quality.',
     failed: 'The file could not be built or saved. Check the browser console for details.',
     paramsLoaded: 'Parameters loaded from {file}.',
-    badFile: 'That file is not a Torno Espiral file.',
+    badFile: 'That file is not a Vasp file.',
     unreadable: 'The file could not be read.',
     resetDone: 'Parameters reset.',
   },
@@ -205,8 +205,8 @@ export default {
     capTop: 'top-cap-d{d}.stl',
     params: 'parameters.json',
     readme: 'README.txt',
-    zip: 'torno-espiral-{tag}.zip',
-    designs: 'torno-espiral-designs.json',
+    zip: 'vasp-{tag}.zip',
+    designs: 'vasp-designs.json',
   },
   orca: {
     printerTitle: 'Printer and process',
@@ -236,7 +236,7 @@ export default {
     capsFlip: 'The top cap prints like the bottom one, closed face on the bed, and is flipped when assembling.',
     holeBottom: 'The bottom cap has a {d} mm through hole in the centre.',
     holeTop: 'The top cap has a {d} mm through hole in the centre.',
-    resume: 'To pick this design up again, load {file} in Torno Espiral.',
+    resume: 'To pick this design up again, load {file} in Vasp.',
   },
   designs: {
     intro: 'The design on screen is saved automatically in this browser and comes back when you reopen the page. Here you can keep several under a name.',
@@ -261,7 +261,7 @@ export default {
     restored: 'Backup loaded. Designs added or updated: {n}.',
     backedUp: 'Backup saved to {file}.',
     nothingToBackup: 'There are no saved designs to back up.',
-    badFile: 'That file is not a Torno Espiral design backup.',
+    badFile: 'That file is not a Vasp design backup.',
     unreadable: 'The file could not be read.',
   },
 };

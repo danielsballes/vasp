@@ -17,7 +17,7 @@ export function createViewer(canvas, stage) {
   const camera = new PerspectiveCamera(32, 1, 1, 5000);
   scene.add(camera);
   /* three.js uses physical light units: these intensities amount to soft studio lighting. */
-  scene.add(new HemisphereLight(0xffffff, 0x2a3050, 1.7));
+  scene.add(new HemisphereLight(0xffffff, 0x3a2a1e, 1.7));
   const key = new DirectionalLight(0xffffff, 2.2); key.position.set(0.5, 0.9, 1); camera.add(key);
   const rim = new DirectionalLight(0xffffff, 0.55); rim.position.set(-1, 0.2, -0.6); camera.add(rim);
 
@@ -41,7 +41,7 @@ export function createViewer(canvas, stage) {
     }
     const geo = new BufferGeometry();
     geo.setAttribute('position', new Float32BufferAttribute(pts, 3));
-    return new LineSegments(geo, new LineBasicMaterial({ color: 0x7f89a6, transparent: true, opacity: 0.4 }));
+    return new LineSegments(geo, new LineBasicMaterial({ color: 0x9a8670, transparent: true, opacity: 0.4 }));
   })();
   root.add(plate);
 

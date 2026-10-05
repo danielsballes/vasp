@@ -3,39 +3,41 @@
    Bootstrap lacks: the workshop layout (stage + panel), the 3D stage and the profile editor. */
 
 /* ---------- palette ---------- */
+/* Cream paper, dark coffee ink and a gold accent. The gold is too light for small text on cream, so
+   the buttons put the ink colour on it and links use the deeper gold. */
 :root, [data-bs-theme="light"] {
-  --aa-bg: #ECEEF3;
-  --aa-surface: #F7F8FB;
-  --aa-field: #FFFFFF;
-  --aa-stage-a: #F3F5FA;
-  --aa-stage-b: #D9DEEA;
-  --aa-ink: #161A2A;
-  --aa-muted: #566079;
-  --aa-line: #CFD5E2;
-  --aa-accent: #C23B2A;
-  --aa-accent-rgb: 194, 59, 42;
-  --aa-on-accent: #FFFFFF;
-  --aa-gold: #8F6410;
-  --aa-ok: #1B7A52;
-  --aa-warn: #946000;
-  --aa-bad: #B3261E;
+  --aa-bg: #F3ECDF;
+  --aa-surface: #FAF6EE;
+  --aa-field: #FFFDF8;
+  --aa-stage-a: #FBF7EF;
+  --aa-stage-b: #E6DAC6;
+  --aa-ink: #2E1F15;
+  --aa-muted: #6E5A48;
+  --aa-line: #DDCFB8;
+  --aa-accent: #C9962E;
+  --aa-accent-rgb: 201, 150, 46;
+  --aa-on-accent: #2E1F15;
+  --aa-gold: #8A6216;
+  --aa-ok: #3F7A3A;
+  --aa-warn: #A0620A;
+  --aa-bad: #A8321F;
 }
 [data-bs-theme="dark"] {
-  --aa-bg: #0E1120;
-  --aa-surface: #151A2D;
-  --aa-field: #0E1222;
-  --aa-stage-a: #1A2038;
-  --aa-stage-b: #090C17;
-  --aa-ink: #E8EBF5;
-  --aa-muted: #99A2BC;
-  --aa-line: #2A3252;
-  --aa-accent: #EC6A52;
-  --aa-accent-rgb: 236, 106, 82;
-  --aa-on-accent: #1B0A06;
-  --aa-gold: #E3B552;
-  --aa-ok: #62D3A2;
+  --aa-bg: #1B130D;
+  --aa-surface: #241A12;
+  --aa-field: #150F0A;
+  --aa-stage-a: #2C2016;
+  --aa-stage-b: #0F0A06;
+  --aa-ink: #F2E8D8;
+  --aa-muted: #B9A58E;
+  --aa-line: #3E2F22;
+  --aa-accent: #E0B04A;
+  --aa-accent-rgb: 224, 176, 74;
+  --aa-on-accent: #1B130D;
+  --aa-gold: #F0D08A;
+  --aa-ok: #8CCB7E;
   --aa-warn: #F0B64A;
-  --aa-bad: #FF8E7E;
+  --aa-bad: #F08A72;
 }
 
 /* ---------- the palette, mapped onto Bootstrap's variables ---------- */
@@ -51,15 +53,15 @@
   --bs-tertiary-bg: var(--aa-surface);
   --bs-primary: var(--aa-accent);
   --bs-primary-rgb: var(--aa-accent-rgb);
-  --bs-link-color: var(--aa-accent);
-  --bs-link-hover-color: var(--aa-accent);
+  --bs-link-color: var(--aa-gold);
+  --bs-link-hover-color: var(--aa-gold);
   --bs-focus-ring-color: rgba(var(--aa-accent-rgb), 0.3);
-  --bs-font-sans-serif: "Instrument Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --bs-font-monospace: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --bs-font-sans-serif: "Archivo", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --bs-font-monospace: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --bs-body-font-size: 0.875rem;
   --bs-border-radius: 0.5rem;
   --bs-border-radius-sm: 0.375rem;
-  --aa-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --aa-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
   --aa-chevron: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
 }
 
@@ -158,7 +160,7 @@ body { -webkit-font-smoothing: antialiased; }
 .app-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--aa-line); }
 .brand { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
 .brand svg { flex: none; color: var(--aa-accent); }
-.brand h1 { margin: 0; font: 700 1.375rem/1.1 var(--aa-display); letter-spacing: -0.01em; }
+.brand h1 { margin: 0; font: 800 1.6rem/1 var(--aa-display); font-stretch: 125%; letter-spacing: 0.04em; text-transform: uppercase; }
 .brand .sub { margin: 0.125rem 0 0; color: var(--aa-muted); font-size: 0.75rem; }
 .status { font-size: 0.8rem; color: var(--aa-muted); max-width: 46ch; }
 .status.is-ok { color: var(--aa-ok); }
@@ -242,7 +244,7 @@ button.chip { font-family: inherit; line-height: inherit; }
   margin-left: 0; background-image: none; background-color: var(--aa-muted);
   -webkit-mask: var(--aa-chevron) center / contain no-repeat; mask: var(--aa-chevron) center / contain no-repeat;
 }
-.section-title { font: 500 0.95rem/1.2 var(--aa-display); }
+.section-title { font: 700 0.85rem/1.2 var(--aa-display); font-stretch: 115%; letter-spacing: 0.06em; text-transform: uppercase; }
 .section-summary { margin-left: auto; font-size: 0.75rem; color: var(--aa-muted); text-align: right; }
 .accordion-body { display: flex; flex-direction: column; gap: 0.8rem; padding-bottom: 1rem; }
 .range-field { display: flex; flex-direction: column; gap: 0.2rem; }

@@ -5,8 +5,8 @@ import css from "@eslint/css";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
-  // The build output is generated code.
-  globalIgnores(["dist/"]),
+  // The build output and Vite's dependency cache are generated code.
+  globalIgnores(["dist/", ".vite/"]),
   // JavaScript and Vue. The Vue config goes inside `extends` so this block's `files` applies to it
   // too: listed on its own it has no file filter, so its rules also run on CSS files and crash there.
   {

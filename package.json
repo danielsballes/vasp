@@ -1,5 +1,5 @@
 {
-  "name": "torno-espiral-vue",
+  "name": "vasp",
   "private": true,
   "version": "0.1.0",
   "description": "Parametric generator of single-wall parts for spiral vase mode printing (Ad Astra).",

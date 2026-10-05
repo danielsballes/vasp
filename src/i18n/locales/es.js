@@ -195,7 +195,7 @@ export default {
     tooLarge: 'El archivo es muy grande para este dispositivo. Exporte en calidad Normal o Borrador.',
     failed: 'No se pudo generar o guardar el archivo. Revise la consola del navegador para ver el detalle.',
     paramsLoaded: 'Parámetros cargados desde {file}.',
-    badFile: 'Ese archivo no es de Torno Espiral.',
+    badFile: 'Ese archivo no es de Vasp.',
     unreadable: 'No se pudo leer el archivo.',
     resetDone: 'Parámetros restablecidos.',
   },
@@ -205,8 +205,8 @@ export default {
     capTop: 'tapa-superior-d{d}.stl',
     params: 'parametros.json',
     readme: 'LEEME.txt',
-    zip: 'torno-espiral-{tag}.zip',
-    designs: 'torno-espiral-disenos.json',
+    zip: 'vasp-{tag}.zip',
+    designs: 'vasp-disenos.json',
   },
   orca: {
     printerTitle: 'Impresora y proceso',
@@ -236,7 +236,7 @@ export default {
     capsFlip: 'La tapa superior se imprime igual que la inferior, con la cara cerrada sobre la cama, y se voltea al armar.',
     holeBottom: 'La tapa inferior lleva un agujero pasante de {d} mm de diámetro en el centro.',
     holeTop: 'La tapa superior lleva un agujero pasante de {d} mm de diámetro en el centro.',
-    resume: 'Para retomar este diseño, cargue {file} en Torno Espiral.',
+    resume: 'Para retomar este diseño, cargue {file} en Vasp.',
   },
   designs: {
     intro: 'El diseño en pantalla se guarda solo en este navegador y vuelve al abrir la página. Aquí puede guardar varios con nombre.',
@@ -261,7 +261,7 @@ export default {
     restored: 'Respaldo cargado. Diseños agregados o actualizados: {n}.',
     backedUp: 'Respaldo guardado en {file}.',
     nothingToBackup: 'No hay diseños guardados para respaldar.',
-    badFile: 'Ese archivo no es un respaldo de diseños de Torno Espiral.',
+    badFile: 'Ese archivo no es un respaldo de diseños de Vasp.',
     unreadable: 'No se pudo leer el archivo.',
   },
 };
