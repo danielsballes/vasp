@@ -29,12 +29,13 @@ describe('body', () => {
     expect(m.overBody).toBeLessThanOrEqual(q.limit + 5.5);
   });
 
-  it('the gourd uses round segments: its lower lobe is a sphere', () => {
+  it('the gourd uses round segments: its lobes pass through the points and bulge outwards', () => {
     const q = G.derive(presetParams(GOURD, DEFAULTS));
-    const zc = q.zb + 0.2967 * q.hb;                       // centre of the lower lobe
-    for (const dz of [10, 20, 30]) {
-      const r = q.want[Math.round((zc + dz) / q.dz)];
-      expect(Math.hypot(r, dz)).toBeCloseTo(q.Rmax, 0);
+    const at = (u) => Math.round((q.zb + u * q.hb) / q.dz);
+    for (const [u, r] of q.pts) expect(q.want[at(u)]).toBeCloseTo(r * q.Rmax, 0);
+    const [lobe, waist] = q.pts;
+    for (let i = at(lobe[0]) + 1; i < at(waist[0]); i++) {
+      expect(q.want[i - 1] + q.want[i + 1] - 2 * q.want[i]).toBeLessThanOrEqual(1e-9);   // concave: no flat or hollow stretch
     }
   });
 });
