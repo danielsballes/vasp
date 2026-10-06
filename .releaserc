@@ -1,0 +1,22 @@
+{
+  "branches": ["main", { "name": "next", "prerelease": true }],
+  "tagFormat": "v${version}",
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "pnpm build && cd dist && zip -qr ../vasp-${nextRelease.version}.zip ."
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "assets": [
+          { "path": "vasp-*.zip", "label": "Vasp ${nextRelease.version} (built app, ready to serve from any folder)" }
+        ]
+      }
+    ]
+  ]
+}
