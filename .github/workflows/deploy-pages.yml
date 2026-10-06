@@ -1,0 +1,87 @@
+name: Deploy to GitHub Pages
+
+# Publishes the built app to GitHub Pages once "Verify and Release" has passed on a push to main,
+# so only verified commits reach the site. It can also be run by hand from the Actions tab, which
+# publishes main only if "Verify and Release" already passed for that commit.
+on:
+  workflow_run:
+    workflows:
+      - Verify and Release
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer run waits instead of cancelling one already publishing. A group
+# holds a single pending run, so runs that will not deploy (failed or non-push verifications) get
+# a group of their own and cannot displace a verified commit waiting its turn.
+concurrency:
+  group: >-
+    ${{ (github.event_name == 'workflow_dispatch' ||
+    (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
+    && 'pages' || format('pages-skipped-{0}', github.run_id) }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    permissions:
+      contents: read
+      actions: read # look up the "Verify and Release" runs of a manually deployed commit
+    steps:
+      - name: Require a verified commit
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_REF_NAME" != main ]; then
+            echo "::error::Only main is deployed; this run was started on $GITHUB_REF_NAME."
+            exit 1
+          fi
+          passed=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/verify-and-release.yml/runs?head_sha=$GITHUB_SHA&event=push&status=success" --jq '.total_count')
+          if [ "$passed" -eq 0 ]; then
+            echo "::error::\"Verify and Release\" has not passed for $GITHUB_SHA; nothing is deployed."
+            exit 1
+          fi
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }} # the commit that was verified
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm build
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      pages: write # publish to GitHub Pages
+      id-token: write # prove the deployment comes from this repository
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
