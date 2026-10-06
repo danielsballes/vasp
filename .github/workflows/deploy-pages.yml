@@ -1,7 +1,8 @@
 name: Deploy to GitHub Pages
 
 # Publishes the built app to GitHub Pages once "Verify and Release" has passed on a push to main,
-# so only verified commits reach the site. It can also be run by hand from the Actions tab.
+# so only verified commits reach the site. It can also be run by hand from the Actions tab, which
+# publishes main only if "Verify and Release" already passed for that commit.
 on:
   workflow_run:
     workflows:
@@ -15,9 +16,14 @@ on:
 permissions:
   contents: read
 
-# One deployment at a time; a newer run waits instead of cancelling one already publishing.
+# One deployment at a time; a newer run waits instead of cancelling one already publishing. A group
+# holds a single pending run, so runs that will not deploy (failed or non-push verifications) get
+# a group of their own and cannot displace a verified commit waiting its turn.
 concurrency:
-  group: pages
+  group: >-
+    ${{ (github.event_name == 'workflow_dispatch' ||
+    (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
+    && 'pages' || format('pages-skipped-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:
@@ -27,7 +33,24 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    permissions:
+      contents: read
+      actions: read # look up the "Verify and Release" runs of a manually deployed commit
     steps:
+      - name: Require a verified commit
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_REF_NAME" != main ]; then
+            echo "::error::Only main is deployed; this run was started on $GITHUB_REF_NAME."
+            exit 1
+          fi
+          passed=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/verify-and-release.yml/runs?head_sha=$GITHUB_SHA&event=push&status=success" --jq '.total_count')
+          if [ "$passed" -eq 0 ]; then
+            echo "::error::\"Verify and Release\" has not passed for $GITHUB_SHA; nothing is deployed."
+            exit 1
+          fi
       - name: Checkout
         uses: actions/checkout@v4
         with:
