@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as G from '../src/core/geometry.js';
 import { toSTL } from '../src/core/stl.js';
-import { DEFAULTS, PRESETS, applyParams, presetParams } from '../src/core/params.js';
+import { DEFAULTS, PRESETS, applyParams, paramsFromFile, presetParams } from '../src/core/params.js';
 import { suggestPrint, supportAt } from '../src/core/print.js';
 import { capClearance, inspectSTL } from './helpers.js';
 
@@ -102,5 +102,17 @@ describe('layer support', () => {
     const fit = suggestPrint(68, 0.4);
     expect(fit.ok).toBe(true);
     expect(supportAt(68, fit.lh, fit.lw)).toBeGreaterThanOrEqual(0.5);
+  });
+});
+
+describe('parameters file', () => {
+  it('reads the params of an exported file, or a bare parameter set', () => {
+    expect(paramsFromFile({ app: 'Vasp', version: 1, params: { H: 150 } })).toEqual({ H: 150 });
+    expect(paramsFromFile({ H: 150 })).toEqual({ H: 150 });
+  });
+  it('rejects a designs backup and anything that is not an object', () => {
+    expect(paramsFromFile({ kind: 'torno-espiral-designs', designs: [] })).toBeNull();
+    expect(paramsFromFile([1, 2])).toBeNull();
+    expect(paramsFromFile(null)).toBeNull();
   });
 });
