@@ -52,10 +52,9 @@ export const PRESETS = [
      thin layer and a wide line. */
   { id: 'round', p: () => ({ H: 150, D: 180, n: 2.6, shoulder: 68, rings: 34, ringRelief: 0.5, ringWidth: 3, ribs: 6, ribRelief: 0.8, ribWidth: 6, botD: 100, botL: 12, topD: 100, topL: 12 }) },
   { id: 'twisted', p: () => ({ H: 220, D: 130, n: 2.6, belly: 38, shoulder: 40, rings: 0, ribs: 10, ribRelief: 2.2, ribWidth: 100, twist: 120, base: 'closed', botD: 70, botL: 0, botThread: false, topD: 84, topL: 0, topThread: false }) },
-  /* Gourd made of two spheres that intersect at the waist: 116 mm below, 79 % of that above, a short
-     neck and fine sharp ribs. The point heights are the ones that make the lobes spherical. The neck
-     is the top mouth's own neck, so a single control changes its diameter. */
-  { id: 'gourd', p: () => ({ H: 200, D: 116, profile: 'free', curve: 'round', pts: [[0.2967, 1], [0.5685, 0.53], [0.7564, 0.79]], shoulder: 68, rings: 0, ribs: 84, ribRelief: 1.6, ribWidth: 100, ribShape: 'crest', ribProp: true, twist: 40, base: 'closed', botD: 44, botL: 0, botThread: false, topD: 26, topL: 19, topThread: false }) },
+  /* Gourd made of two round lobes that meet in a sharp waist: 116 mm below, 80 % of that above,
+     closing into a narrow mouth, with straight sunken ribs and no twist. */
+  { id: 'gourd', p: () => ({ H: 200, D: 116, profile: 'free', curve: 'round', pts: [[0.2967, 1], [0.5685, 0.53], [0.7526, 0.8028], [0.9654, 0.1678]], shoulder: 60, rings: 0, ribs: 58, ribRelief: -3, ribWidth: 100, ribShape: 'crest', ribProp: true, twist: 0, base: 'closed', botD: 44, botL: 0, botThread: false, topD: 18, topL: 0, topThread: false }) },
   /* Vase whose shoulder narrows into a waist and opens again at the mouth. Only a free profile with
      no neck can do that: a neck is always a vertical cylinder, and with a neck length of 0 the wall
      reaches the mouth with whatever tilt the profile has there. */

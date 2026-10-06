@@ -49,7 +49,7 @@ describe('saved designs', () => {
 
   it('tells a wrong file from an empty library and skips broken entries', () => {
     expect(parseLibrary(null)).toBeNull();
-    expect(parseLibrary({ app: 'Torno Espiral', version: 1, params: DEFAULTS })).toBeNull();
+    expect(parseLibrary({ app: 'Vasp', version: 1, params: DEFAULTS })).toBeNull();
     expect(parseLibrary({ ...serializeLibrary([]) })).toEqual([]);
     const data = serializeLibrary(upsertDesign([], 'Good', DEFAULTS, T0).list);
     data.designs.push({ name: 'No parameters' }, null, { name: '', params: DEFAULTS }, { name: 'good', params: DEFAULTS });

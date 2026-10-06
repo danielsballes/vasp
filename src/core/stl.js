@@ -4,7 +4,7 @@ import { eachTri, triCountOf } from './geometry.js';
 export function toSTL(g, label) {
   const n = triCountOf(g);
   const out = new Uint8Array(84 + n * 50);
-  const head = 'Torno Espiral - ' + (label || 'part') + ' - mm';
+  const head = 'Vasp - ' + (label || 'part') + ' - mm';
   for (let i = 0; i < Math.min(79, head.length); i++) out[i] = head.charCodeAt(i) & 0x7f;
   new DataView(out.buffer).setUint32(80, n, true);
   const f = new Float32Array(12);

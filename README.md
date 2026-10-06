@@ -1,4 +1,4 @@
-# Torno Espiral (Vue 3 + Vite + Bootstrap)
+# Vasp (Vue 3 + Vite + Bootstrap)
 
 Parametric generator of single-wall lanterns, vases and planters for spiral vase mode printing, with
 optional threads, matching smooth caps and STL export. It is the same application as the original
