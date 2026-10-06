@@ -16,6 +16,8 @@
   --aa-line: #DDCFB8;
   --aa-accent: #C9962E;
   --aa-accent-rgb: 201, 150, 46;
+  --aa-accent-ui: #8A6216;        /* focus rings, checked boxes, slider thumbs: 3:1 or more on every light surface */
+  --aa-accent-ui-rgb: 138, 98, 22;
   --aa-on-accent: #2E1F15;
   --aa-gold: #8A6216;
   --aa-ok: #356A31;
@@ -33,6 +35,8 @@
   --aa-line: #3E2F22;
   --aa-accent: #E0B04A;
   --aa-accent-rgb: 224, 176, 74;
+  --aa-accent-ui: #E0B04A;
+  --aa-accent-ui-rgb: 224, 176, 74;
   --aa-on-accent: #1B130D;
   --aa-gold: #F0D08A;
   --aa-ok: #8CCB7E;
@@ -55,7 +59,7 @@
   --bs-primary-rgb: var(--aa-accent-rgb);
   --bs-link-color: var(--aa-gold);
   --bs-link-hover-color: var(--aa-gold);
-  --bs-focus-ring-color: rgba(var(--aa-accent-rgb), 0.3);
+  --bs-focus-ring-color: rgba(var(--aa-accent-ui-rgb), 1);
   --bs-font-sans-serif: "Archivo", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --bs-font-monospace: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --bs-body-font-size: 0.875rem;
@@ -82,7 +86,7 @@ body { -webkit-font-smoothing: antialiased; }
   --bs-btn-disabled-color: var(--aa-on-accent);
   --bs-btn-disabled-bg: var(--aa-accent);
   --bs-btn-disabled-border-color: var(--aa-accent);
-  --bs-btn-focus-shadow-rgb: var(--aa-accent-rgb);
+  --bs-btn-focus-shadow-rgb: var(--aa-accent-ui-rgb);
   font-weight: 600;
 }
 .btn-outline-secondary {
@@ -97,7 +101,7 @@ body { -webkit-font-smoothing: antialiased; }
   --bs-btn-active-border-color: var(--aa-muted);
   --bs-btn-disabled-color: var(--aa-muted);
   --bs-btn-disabled-border-color: var(--aa-line);
-  --bs-btn-focus-shadow-rgb: var(--aa-accent-rgb);
+  --bs-btn-focus-shadow-rgb: var(--aa-accent-ui-rgb);
 }
 /* option group: the selected one is filled with the ink colour */
 .btn-seg {
@@ -113,7 +117,7 @@ body { -webkit-font-smoothing: antialiased; }
   --bs-btn-disabled-color: var(--aa-muted);
   --bs-btn-disabled-bg: var(--aa-field);
   --bs-btn-disabled-border-color: var(--aa-line);
-  --bs-btn-focus-shadow-rgb: var(--aa-accent-rgb);
+  --bs-btn-focus-shadow-rgb: var(--aa-accent-ui-rgb);
   font-weight: 500;
 }
 /* confirm step of a destructive action */
@@ -127,7 +131,7 @@ body { -webkit-font-smoothing: antialiased; }
   --bs-btn-active-color: var(--aa-field);
   --bs-btn-active-bg: color-mix(in srgb, var(--aa-bad) 80%, var(--aa-ink));
   --bs-btn-active-border-color: var(--bs-btn-active-bg);
-  --bs-btn-focus-shadow-rgb: var(--aa-accent-rgb);
+  --bs-btn-focus-shadow-rgb: var(--aa-accent-ui-rgb);
   font-weight: 600;
 }
 .btn-seg.glass { --bs-btn-bg: color-mix(in srgb, var(--aa-surface) 88%, transparent); --bs-btn-hover-bg: var(--bs-btn-bg); --bs-btn-disabled-bg: var(--bs-btn-bg); }
@@ -137,17 +141,17 @@ body { -webkit-font-smoothing: antialiased; }
 .form-text.text-warn { color: var(--aa-warn); }
 .form-control, .form-select { background-color: var(--aa-field); }
 .form-control::placeholder { color: var(--aa-muted); opacity: 0.75; }
-.form-control:focus, .form-select:focus, .form-check-input:focus { border-color: var(--aa-accent); box-shadow: 0 0 0 0.2rem rgba(var(--aa-accent-rgb), 0.25); }
+.form-control:focus, .form-select:focus, .form-check-input:focus { border-color: var(--aa-accent-ui); box-shadow: 0 0 0 2px var(--aa-accent-ui); }
 .form-check-input { background-color: var(--aa-field); border-color: var(--aa-muted); }
-.form-check-input:checked { background-color: var(--aa-accent); border-color: var(--aa-accent); }
+.form-check-input:checked { background-color: var(--aa-accent-ui); border-color: var(--aa-accent-ui); }
 .form-check-label { font-size: 0.8125rem; font-weight: 500; }
 .form-range { display: block; }
-.form-range::-webkit-slider-thumb { background-color: var(--aa-accent); }
-.form-range::-moz-range-thumb { background-color: var(--aa-accent); }
-.form-range::-webkit-slider-thumb:active { background-color: color-mix(in srgb, var(--aa-accent) 70%, var(--aa-field)); }
-.form-range::-moz-range-thumb:active { background-color: color-mix(in srgb, var(--aa-accent) 70%, var(--aa-field)); }
-.form-range:focus::-webkit-slider-thumb { box-shadow: 0 0 0 1px var(--aa-bg), 0 0 0 0.2rem rgba(var(--aa-accent-rgb), 0.25); }
-.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 1px var(--aa-bg), 0 0 0 0.2rem rgba(var(--aa-accent-rgb), 0.25); }
+.form-range::-webkit-slider-thumb { background-color: var(--aa-accent-ui); }
+.form-range::-moz-range-thumb { background-color: var(--aa-accent-ui); }
+.form-range::-webkit-slider-thumb:active { background-color: color-mix(in srgb, var(--aa-accent-ui) 70%, var(--aa-field)); }
+.form-range::-moz-range-thumb:active { background-color: color-mix(in srgb, var(--aa-accent-ui) 70%, var(--aa-field)); }
+.form-range:focus::-webkit-slider-thumb { box-shadow: 0 0 0 1px var(--aa-bg), 0 0 0 3px var(--aa-accent-ui); }
+.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 1px var(--aa-bg), 0 0 0 3px var(--aa-accent-ui); }
 .is-off { opacity: 0.45; }
 
 /* number box next to each slider */
@@ -183,7 +187,7 @@ body { -webkit-font-smoothing: antialiased; }
 .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
 .stage canvas:active { cursor: grabbing; }
 .stage canvas:focus { outline: none; }
-.stage canvas:focus-visible { outline: 2px solid var(--aa-accent); outline-offset: -2px; }
+.stage canvas:focus-visible { outline: 2px solid var(--aa-accent-ui); outline-offset: -2px; }
 .stage-fallback { position: absolute; inset: 0; display: grid; place-items: center; padding: 1.5rem; margin: 0; text-align: center; color: var(--aa-muted); }
 .overlay { position: absolute; left: 0.75rem; right: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; justify-content: space-between; pointer-events: none; }
 .overlay > * { pointer-events: auto; }
@@ -231,14 +235,14 @@ button.chip { font-family: inherit; line-height: inherit; }
   --bs-accordion-btn-padding-y: 0.7rem;
   --bs-accordion-body-padding-x: 0;
   --bs-accordion-body-padding-y: 0;
-  --bs-accordion-btn-focus-box-shadow: 0 0 0 0.2rem rgba(var(--aa-accent-rgb), 0.25);
+  --bs-accordion-btn-focus-box-shadow: 0 0 0 2px var(--aa-accent-ui);
   --bs-accordion-btn-icon-width: 0.9rem;
 }
 .accordion-flush > .accordion-item:first-child { border-top: 1px solid var(--aa-line); }
 .accordion-button { gap: 0.6rem; }
 /* same selectors Bootstrap uses for its inset line and focus ring, so these win by coming later */
 .accordion-button:not(.collapsed), .accordion-button:focus { box-shadow: none; }
-.accordion-button:focus-visible { outline: 2px solid var(--aa-accent); outline-offset: 2px; }
+.accordion-button:focus-visible { outline: 2px solid var(--aa-accent-ui); outline-offset: 2px; }
 /* neutral chevron in both themes: the colour comes from the palette and the shape from a mask */
 .accordion-button::after {
   margin-left: 0; background-image: none; background-color: var(--aa-muted);
@@ -259,7 +263,7 @@ button.chip { font-family: inherit; line-height: inherit; }
 .design-save .form-control { flex: 1; min-width: 0; }
 .design-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.375rem; }
 .design-item { display: flex; align-items: center; gap: 0.375rem; padding: 0.4rem 0.5rem 0.4rem 0.65rem; border: 1px solid var(--aa-line); border-radius: var(--bs-border-radius); background: var(--aa-field); }
-.design-item.current { border-color: var(--aa-accent); }
+.design-item.current { border-color: var(--aa-accent-ui); }
 .design-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .design-name { font-size: 0.8125rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .design-info small { font-size: 0.72rem; color: var(--aa-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -270,12 +274,12 @@ button.chip { font-family: inherit; line-height: inherit; }
 .profile-editor svg { width: 100%; height: auto; display: block; touch-action: none; border: 1px solid var(--aa-line); border-radius: var(--bs-border-radius); background: var(--aa-field); }
 .profile-editor .num-box .form-control { width: 3.6rem; }
 .pe-axis { stroke: var(--aa-line); stroke-dasharray: 2 4; }
-.pe-shape { fill: color-mix(in srgb, var(--aa-accent) 16%, transparent); stroke: var(--aa-accent); stroke-width: 1.5; stroke-linejoin: round; }
+.pe-shape { fill: color-mix(in srgb, var(--aa-accent) 16%, transparent); stroke: var(--aa-accent-ui); stroke-width: 1.5; stroke-linejoin: round; }
 .pe-want { fill: none; stroke: var(--aa-muted); stroke-width: 1.2; stroke-dasharray: 4 3; }
-.pe-h { fill: var(--aa-field); stroke: var(--aa-accent); stroke-width: 2; cursor: grab; }
-.pe-h.sel { fill: var(--aa-accent); }
-.pe-h.end { stroke: var(--aa-gold); }
-.pe-h.end.sel { fill: var(--aa-gold); }
+.pe-h { fill: var(--aa-field); stroke: var(--aa-accent-ui); stroke-width: 2; cursor: grab; }
+.pe-h.sel { fill: var(--aa-accent-ui); }
+.pe-h.end { stroke: var(--aa-ink); }
+.pe-h.end.sel { fill: var(--aa-ink); }
 .pe-h:focus { outline: none; }
 .pe-h:focus-visible { stroke: var(--aa-ink); stroke-width: 3; }
 
