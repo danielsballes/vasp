@@ -25,7 +25,7 @@ function onParamsFile(e) {
     }
     input.value = '';
   };
-  fr.onerror = () => setStatus('exporting.unreadable', {}, 'bad');
+  fr.onerror = () => { setStatus('exporting.unreadable', {}, 'bad'); input.value = ''; };
   fr.readAsText(file);
 }
 
