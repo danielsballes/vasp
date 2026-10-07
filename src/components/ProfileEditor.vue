@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useModel } from '../composables/useModel.js';
 import { nf } from '../i18n/index.js';
@@ -61,6 +61,7 @@ function at(e) {
   return [((e.clientX - b.left) * W) / b.width, ((e.clientY - b.top) * H) / b.height];
 }
 function onDown(e) {
+  if (e.button !== 0) return;   // the right button opens the context menu instead
   const [x, y] = at(e);
   let best = -1, bd = 22;
   geo.value.handles.forEach((h, i) => { const d = Math.hypot(h.x - x, h.y - y); if (d < bd) { bd = d; best = i; } });
@@ -90,19 +91,106 @@ function onKey(e, i) {
   else if (e.key === 'ArrowRight') movePoint(i, null, r + 0.5 * big);
   else if (e.key === 'ArrowLeft') movePoint(i, null, r - 0.5 * big);
   else if (e.key === 'Delete' || e.key === 'Backspace') removePoint(i);
+  else if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) onHandleMenu(e, i);
   else return;
   e.preventDefault();
 }
+/* Context menu (right click, long press on touch, or the menu key on a focused point): add a point
+   exactly where it was opened, or remove the point it was opened on. */
+const wrap = ref(null);
+const menu = ref(null);
+const menuEl = ref(null);
+let menuReturn = null;
+
+function canAddAt(u) {
+  const pts = params.pts || [];
+  return pts.length < 10 && u >= 0.03 && u <= 0.97 && !pts.some((p) => Math.abs(p[0] - u) < 0.03);
+}
+function hitHandle(x, y) {
+  let best = -1, bd = 22;
+  geo.value.handles.forEach((h, i) => { const d = Math.hypot(h.x - x, h.y - y); if (d < bd) { bd = d; best = i; } });
+  return best;
+}
+/* (x, y) are in SVG units; the menu is placed in CSS pixels inside the editor. */
+async function openMenu(x, y, index, returnTo) {
+  const b = svg.value.getBoundingClientRect(), w = wrap.value.getBoundingClientRect();
+  const u = geo.value.toU(y), r = geo.value.toR(x);
+  const n = geo.value.n;
+  const onPoint = index > 0 && index <= n;
+  menu.value = {
+    left: b.left - w.left + (x * b.width) / W,
+    top: b.top - w.top + (y * b.height) / H,
+    index, u, r,
+    canAdd: index < 0 && canAddAt(u),
+    full: n >= 10,
+    canRemove: onPoint && n > 1,
+    onPoint,
+  };
+  if (index >= 0) view.selected = index;
+  menuReturn = returnTo || null;
+  await nextTick();
+  /* Keep the menu inside the editor: the panel scrolls and would clip anything that sticks out. */
+  if (menuEl.value) {
+    const m = menuEl.value.getBoundingClientRect();
+    const maxLeft = w.width - m.width - 4, maxTop = w.height - m.height - 4;
+    if (menu.value.left > maxLeft) menu.value.left = Math.max(0, menu.value.left - m.width - 16);
+    menu.value.top = Math.max(0, Math.min(menu.value.top, maxTop));
+  }
+  const first = menuEl.value && menuEl.value.querySelector('button:not(:disabled)');
+  if (first) first.focus();
+}
+function closeMenu(restoreFocus = true) {
+  if (!menu.value) return;
+  menu.value = null;
+  if (restoreFocus && menuReturn) menuReturn.focus();
+  menuReturn = null;
+}
+function onContext(e) {
+  e.preventDefault();
+  const [x, y] = at(e);
+  openMenu(x, y, hitHandle(x, y), null);
+}
+function onHandleMenu(e, i) {
+  const h = geo.value.handles[i];
+  openMenu(h.x, h.y, i, e.currentTarget);
+}
+function menuAdd() {
+  const m = menu.value;
+  closeMenu(false);
+  if (m && addPoint(m.u, m.r)) nextTick(() => focusHandle(view.selected));
+}
+function menuRemove() {
+  const m = menu.value;
+  closeMenu(false);
+  if (m) { removePoint(m.index); nextTick(() => focusHandle(view.selected)); }
+}
+function menuReseed() { closeMenu(false); reseedPoints(); }
+function focusHandle(i) {
+  const el = svg.value && svg.value.querySelectorAll('.pe-h')[i];
+  if (el) el.focus();
+}
+function onMenuKey(e) {
+  const items = [...menuEl.value.querySelectorAll('button:not(:disabled)')];
+  const k = items.indexOf(document.activeElement);
+  if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); closeMenu(); }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); items[(k + 1) % items.length].focus(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); items[(k - 1 + items.length) % items.length].focus(); }
+}
+function onOutside(e) { if (menu.value && menuEl.value && !menuEl.value.contains(e.target)) closeMenu(false); }
+onMounted(() => document.addEventListener('pointerdown', onOutside, true));
+onBeforeUnmount(() => document.removeEventListener('pointerdown', onOutside, true));
+
 function setU(e) { const v = parseFloat(e.target.value); if (Number.isFinite(v)) movePoint(sel.value, v / 100, null); e.target.value = selU.value; }
 function setD(e) { const v = parseFloat(e.target.value); if (Number.isFinite(v)) movePoint(sel.value, null, v / 2); e.target.value = selD.value; }
 </script>
 
 <template>
-  <div class="profile-editor" id="pe">
+  <div ref="wrap" class="profile-editor" id="pe">
     <svg
       ref="svg" id="pe-svg" :viewBox="`0 0 ${W} ${H}`" role="group"
       :aria-label="t('editor.aria')"
       @pointerdown="onDown" @pointermove="onMove" @pointerup="onUp" @pointercancel="onUp" @dblclick="onDbl"
+      @contextmenu="onContext"
     >
       <line class="pe-axis" :x1="geo.cx" :x2="geo.cx" :y1="geo.yTop" :y2="geo.yBot" />
       <path class="pe-shape" :d="geo.shape" />
@@ -118,6 +206,21 @@ function setD(e) { const v = parseFloat(e.target.value); if (Number.isFinite(v))
         />
       </template>
     </svg>
+
+    <div
+      v-if="menu" ref="menuEl" class="pe-menu" id="pe-menu" role="menu" :aria-label="t('editor.menuAria')"
+      :style="{ left: menu.left + 'px', top: menu.top + 'px' }" @keydown="onMenuKey" @contextmenu.prevent
+    >
+      <button v-if="!menu.onPoint" type="button" role="menuitem" class="pe-menu-item" :disabled="!menu.canAdd" @click="menuAdd">
+        {{ t('editor.addHere') }}
+        <small v-if="menu.index < 0 && !menu.canAdd">{{ t(menu.full ? 'editor.addFull' : 'editor.addTooClose') }}</small>
+      </button>
+      <button v-if="menu.onPoint" type="button" role="menuitem" class="pe-menu-item" :disabled="!menu.canRemove" @click="menuRemove">
+        {{ t('editor.removeThis') }}
+        <small v-if="!menu.canRemove">{{ t('editor.removeLast') }}</small>
+      </button>
+      <button type="button" role="menuitem" class="pe-menu-item" @click="menuReseed">{{ t('editor.reseed') }}</button>
+    </div>
 
     <div class="d-flex flex-wrap align-items-center gap-2">
       <span class="fw-medium me-auto" id="pe-name">{{ selName }}</span>

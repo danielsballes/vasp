@@ -270,7 +270,23 @@ button.chip { font-family: inherit; line-height: inherit; }
 .design-item .btn { flex: none; }
 
 /* ---------- profile editor ---------- */
-.profile-editor { display: flex; flex-direction: column; gap: 0.5rem; }
+.profile-editor { position: relative; display: flex; flex-direction: column; gap: 0.5rem; }
+/* context menu of the profile editor, opened where the right click happened */
+.pe-menu {
+  position: absolute; z-index: 10; min-width: 13rem; padding: 0.25rem;
+  display: flex; flex-direction: column;
+  background: var(--aa-field); border: 1px solid var(--aa-line); border-radius: var(--bs-border-radius);
+  box-shadow: 0 0.5rem 1.25rem color-mix(in srgb, var(--aa-ink) 18%, transparent);
+  transform: translate(0.5rem, 0.25rem);
+}
+.pe-menu-item {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.1rem;
+  padding: 0.4rem 0.6rem; border: 0; border-radius: var(--bs-border-radius-sm);
+  background: none; color: var(--aa-ink); font: inherit; font-size: 0.8125rem; text-align: left; cursor: pointer;
+}
+.pe-menu-item:hover:not(:disabled), .pe-menu-item:focus-visible { background: var(--aa-surface); outline: 2px solid var(--aa-accent-ui); outline-offset: -2px; }
+.pe-menu-item:disabled { color: var(--aa-muted); cursor: default; }
+.pe-menu-item small { font-size: 0.72rem; color: var(--aa-muted); }
 .profile-editor svg { width: 100%; height: auto; display: block; touch-action: none; border: 1px solid var(--aa-line); border-radius: var(--bs-border-radius); background: var(--aa-field); }
 .profile-editor .num-box .form-control { width: 3.6rem; }
 .pe-axis { stroke: var(--aa-line); stroke-dasharray: 2 4; }
