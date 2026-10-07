@@ -231,7 +231,7 @@ export default {
     caps: 'lamínelas aparte, en modo normal y sin espiral, con la cara cerrada sobre la cama. La rosca interna se inclina {over}°, así que no debería pedir soportes.',
   },
   readme: {
-    heading: 'TORNO ESPIRAL · Ad Astra',
+    heading: 'VASP · Ad Astra',
     part: 'Pieza: {h} mm de alto, {d} mm de diámetro real.',
     units: 'Unidades: milímetros. Eje Z hacia arriba. Todos los STL son sólidos cerrados.',
     contour: 'El cuerpo tiene un solo contorno por capa, listo para el modo jarrón en espiral.',

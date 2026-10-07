@@ -10,7 +10,7 @@ import { nf, t } from '../i18n/index.js';
    The working state is written to the browser's local storage on every change, so the page comes
    back as it was left. Named designs are kept apart (see useDesigns.js). */
 
-const STORE = 'torno-espiral-vue-v1';
+const STORE = 'vasp-v1';
 const VIEW_MODES = ['body', 'exploded', 'assembled'];
 const VIEW_DEFAULTS = { mode: 'exploded', heat: false, bodyColor: '#c9962e', capColor: '#6b4a32' };
 const isColor = (v) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);

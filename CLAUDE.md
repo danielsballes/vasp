@@ -7,7 +7,7 @@ and a free profile, see layer by layer where the wall loses support, and export 
 backend.
 
 - Live: https://danielsballes.github.io/vasp/
-- Repo: github.com/danielsballes/vasp (the local folder is still named `torno-espiral-vue`).
+- Repo: github.com/danielsballes/vasp.
 - **Read `README.md` first**: it explains the layout, the geometry model, state, i18n,
   persistence and what the tests cover. This file only adds what the README does not say.
 
@@ -41,9 +41,9 @@ Run `pnpm lint` and `pnpm test` before every commit. Both must pass.
 - **Support levels** (`src/core/print.js`): the share of each layer resting on the previous
   one. ≥50 % ample, 40–50 % enough, 15–40 % tight, <15 % scarce, ≤0 none. Don't confuse this %
   with the wall angle in degrees in any UI text.
-- **Storage keys keep their old names** (`torno-espiral-vue-*`) and the design backup `kind` is
-  `torno-espiral-designs`. This is on purpose, so saved designs keep loading after the rename to
-  Vasp. Don't rename them.
+- **Naming:** the product is Vasp everywhere — storage keys (`vasp-v1`, `vasp-designs-v1`,
+  `vasp-locale`), the design backup `kind` (`vasp-designs`), exported files and the notes. The
+  project's former name must not come back.
 - **Theme** (`src/assets/theme.css`): every colour is a token, with light and dark values.
   - Light: cream `--aa-bg #F3ECDF`, coffee ink `--aa-ink #2E1F15`, gold `--aa-accent #C9962E`.
   - Fonts: Archivo (wordmark "VASP": 800, `font-stretch:125%`, uppercase) and JetBrains Mono for
@@ -75,7 +75,7 @@ Run `pnpm lint` and `pnpm test` before every commit. Both must pass.
 - Headless Chrome via `puppeteer-core`. The Chrome binary is `npx hyperframes browser path`.
 - Settings used for the app captures: 1920×1080, `deviceScaleFactor: 2`, `prefers-color-scheme:
   light`.
-- Language: set `localStorage['torno-espiral-vue-locale'] = 'es' | 'en'` before load.
+- Language: set `localStorage['vasp-locale'] = 'es' | 'en'` before load.
 - Driving the UI from a script:
   - presets: click the `.presets button` whose text matches;
   - view modes: click the `label` "Body/Cuerpo", "Exploded/Despiece", "Assembled/Armado";

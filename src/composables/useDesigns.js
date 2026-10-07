@@ -9,7 +9,7 @@ import { useStatus } from './useStatus.js';
    survive closing the page. Local storage belongs to one browser on one machine and is wiped when
    the user clears the site data, hence the backup file. */
 
-const STORE = 'torno-espiral-vue-designs-v1';
+const STORE = 'vasp-designs-v1';
 
 const { setStatus } = useStatus();
 
