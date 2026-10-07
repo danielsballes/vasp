@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useModel } from '../composables/useModel.js';
 import { useExport } from '../composables/useExport.js';
+import { useParamsFile } from '../composables/useParamsFile.js';
 import { useStatus } from '../composables/useStatus.js';
 import { PRESETS, QUALITY } from '../core/params.js';
 import { NOZZLE_SIZES, supportAt } from '../core/print.js';
@@ -20,9 +21,10 @@ import DesignsPanel from './DesignsPanel.vue';
 const { t } = useI18n();
 const {
   params, model, stats, isFree, nozzle, lwMax,
-  applyPreset, resetParams, importParams, setNozzle, setProfile, setBase, setThread,
+  applyPreset, resetParams, setNozzle, setProfile, setBase, setThread,
 } = useModel();
 const { busy, exportAll } = useExport();
+const { onParamsFile } = useParamsFile();
 const { setStatus } = useStatus();
 
 const q = computed(() => model.value.q);
@@ -129,25 +131,6 @@ const exportNote = computed(() => t('notes.exportInfo', {
   count: 1 + Object.keys(caps.value).length,
 }));
 
-function onFile(e) {
-  const input = e.target, file = input.files && input.files[0];
-  if (!file) return;
-  const fr = new FileReader();
-  fr.onload = () => {
-    try {
-      const data = JSON.parse(String(fr.result));
-      const src = data && data.params ? data.params : data;
-      if (!src || typeof src !== 'object' || Array.isArray(src) || data.designs) throw new Error('unexpected format');
-      importParams(src);
-      setStatus('exporting.paramsLoaded', { file: file.name }, 'ok');
-    } catch {
-      setStatus('exporting.badFile', {}, 'bad');
-    }
-    input.value = '';
-  };
-  fr.onerror = () => setStatus('exporting.unreadable', {}, 'bad');
-  fr.readAsText(file);
-}
 function onPreset(i) { applyPreset(i); setStatus(); }
 function onReset() { resetParams(); setStatus('exporting.resetDone'); }
 </script>
@@ -235,7 +218,7 @@ function onReset() { resetParams(); setStatus('exporting.resetDone'); }
         <button type="button" class="btn btn-primary" id="btn-export-2" :disabled="busy" @click="exportAll">{{ t('app.exportStl') }}</button>
         <label class="btn btn-sm btn-outline-secondary file-btn">
           {{ t('exporting.loadParams') }}
-          <input type="file" id="file-params" accept=".json,application/json" :aria-label="t('exporting.loadParamsAria')" @change="onFile">
+          <input type="file" id="file-params" accept=".json,application/json" :aria-label="t('exporting.loadParamsAria')" @change="onParamsFile">
         </label>
         <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-reset" @click="onReset">{{ t('exporting.reset') }}</button>
       </div>

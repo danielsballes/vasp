@@ -1,12 +1,14 @@
 <script setup>
 import { useI18n } from 'vue-i18n';
 import { useExport } from '../composables/useExport.js';
+import { useParamsFile } from '../composables/useParamsFile.js';
 import { useStatus } from '../composables/useStatus.js';
 import { LOCALES, setLocale } from '../i18n/index.js';
 
 const { t, locale } = useI18n();
 const { status } = useStatus();
 const { busy, exportAll } = useExport();
+const { onParamsFile } = useParamsFile();
 </script>
 
 <template>
@@ -36,6 +38,10 @@ const { busy, exportAll } = useExport();
         <option v-for="l in LOCALES" :key="l.code" :value="l.code" :lang="l.code">{{ l.label }}</option>
       </select>
       <button type="button" class="btn btn-primary top-export" id="btn-export" :disabled="busy" @click="exportAll">{{ t('app.exportStl') }}</button>
+      <label class="btn btn-sm btn-outline-secondary file-btn">
+        {{ t('exporting.loadParams') }}
+        <input type="file" id="file-params-top" accept=".json,application/json" :aria-label="t('exporting.loadParamsAria')" @change="onParamsFile">
+      </label>
     </div>
   </header>
 </template>

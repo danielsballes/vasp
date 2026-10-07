@@ -94,6 +94,14 @@ export function presetParams(index, current) {
   return { ...DEFAULTS, ...kept, ...PRESETS[index].p(current) };
 }
 
+/* Parameter set inside a parsed file, or null when the file is something else (for example a
+   designs backup, which has its own loader) or has no parameter this app knows. */
+export function paramsFromFile(data) {
+  const src = data && data.params ? data.params : data;
+  if (!src || typeof src !== 'object' || Array.isArray(src) || data.designs) return null;
+  return Object.keys(DEFAULTS).some((k) => Object.hasOwn(src, k)) ? src : null;
+}
+
 /* Free-profile points that copy whatever barrel shape the model currently has. */
 export function seedPoints(p) {
   const q = derive({ ...p, profile: 'barrel' });
