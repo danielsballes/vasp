@@ -111,8 +111,13 @@ describe('parameters file', () => {
     expect(paramsFromFile({ H: 150 })).toEqual({ H: 150 });
   });
   it('rejects a designs backup and anything that is not an object', () => {
-    expect(paramsFromFile({ kind: 'torno-espiral-designs', designs: [] })).toBeNull();
+    expect(paramsFromFile({ kind: 'vasp-designs', designs: [] })).toBeNull();
     expect(paramsFromFile([1, 2])).toBeNull();
     expect(paramsFromFile(null)).toBeNull();
+  });
+  it('rejects an object with no known parameter', () => {
+    expect(paramsFromFile({})).toBeNull();
+    expect(paramsFromFile({ foo: 1 })).toBeNull();
+    expect(paramsFromFile({ params: { foo: 1 } })).toBeNull();
   });
 });
