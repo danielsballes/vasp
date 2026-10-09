@@ -164,7 +164,7 @@ function menuRemove() {
   closeMenu(false);
   if (m) { removePoint(m.index); nextTick(() => focusHandle(view.selected)); }
 }
-function menuReseed() { closeMenu(false); reseedPoints(); }
+function menuReseed() { closeMenu(false); reseedPoints(); nextTick(() => focusHandle(view.selected)); }
 function focusHandle(i) {
   const el = svg.value && svg.value.querySelectorAll('.pe-h')[i];
   if (el) el.focus();
