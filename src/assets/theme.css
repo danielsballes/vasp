@@ -291,6 +291,7 @@ button.chip { font-family: inherit; line-height: inherit; }
 .profile-editor .num-box .form-control { width: 3.6rem; }
 .pe-axis { stroke: var(--aa-line); stroke-dasharray: 2 4; }
 .pe-shape { fill: color-mix(in srgb, var(--aa-accent) 16%, transparent); stroke: var(--aa-accent-ui); stroke-width: 1.5; stroke-linejoin: round; }
+.pe-side { fill: var(--aa-muted); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
 .pe-want { fill: none; stroke: var(--aa-muted); stroke-width: 1.2; stroke-dasharray: 4 3; }
 .pe-h { fill: var(--aa-field); stroke: var(--aa-accent-ui); stroke-width: 2; cursor: grab; }
 .pe-h.sel { fill: var(--aa-accent-ui); }

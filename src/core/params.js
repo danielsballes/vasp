@@ -12,7 +12,7 @@ export const DEFAULTS = {
   topHole: false, topHoleD: 40, botHole: false, botHoleD: 10,
   nozzle: 0.4, lh: 0.2, lw: 0.42, protect: true,
   base: 'open', baseT: 1,
-  profile: 'barrel', pts: null, curve: 'smooth',
+  profile: 'barrel', pts: null, ptsL: null, curve: 'smooth',
   ribShape: 'wave', ribProp: false,
   quality: 'normal',
 };
@@ -81,7 +81,7 @@ export function applyParams(target, src) {
     if (typeof d === 'number' && Number.isFinite(+v)) target[k] = +v;
     else if (typeof d === 'boolean' && typeof v === 'boolean') target[k] = v;
     else if (ENUMS[k] && ENUMS[k].includes(v)) target[k] = v;
-    else if (k === 'pts') { const c = cleanPoints(v); target.pts = c.length ? c : null; }
+    else if (k === 'pts' || k === 'ptsL') { const c = cleanPoints(v); target[k] = c.length ? c : null; }
   }
   if (target.profile === 'free' && !target.pts) target.profile = 'barrel';
   fitToNozzle(target, false);

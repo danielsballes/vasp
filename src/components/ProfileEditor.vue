@@ -3,68 +3,102 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useModel } from '../composables/useModel.js';
 import { nf } from '../i18n/index.js';
+import SwitchField from './SwitchField.vue';
 
-/* Free-profile editor: a half silhouette with draggable points. The filled silhouette is the
-   profile that gets printed (tilt limit applied) and the dashed line is the one that was drawn. */
+/* Free-profile editor: the silhouette with draggable points. The filled silhouette is the profile
+   that gets printed (tilt limit applied) and the dashed line is the one that was drawn. With equal
+   sides only the right half has points and the left half mirrors it; with different sides each
+   half has its own points (the right one is the front of the part, θ = 0, the left one the back). */
 const { t } = useI18n();
-const { params, model, view, movePoint, addPoint, addPointInGap, removePoint, reseedPoints } = useModel();
+const { params, model, view, movePoint, canAddPoint, addPoint, addPointInGap, removePoint, reseedPoints, setSidesEqual } = useModel();
 
 const W = 320, H = 300, PAD = 18;
 const svg = ref(null);
 let drag = null;
 
+const twoSides = computed(() => !!(params.ptsL && params.ptsL.length));
+const sidePts = (side) => (side === 'L' && twoSides.value ? params.ptsL : params.pts) || [];
+
+/* Handles, in order: base, right points, top, then the left points when the sides differ.
+   Each one knows its side ('R' / 'L') and its index within the side (0 base, n + 1 top). */
 const geo = computed(() => {
-  const q = model.value.q, pts = params.pts || [];
+  const q = model.value.q, pR = params.pts || [], two = twoSides.value, pL = two ? params.ptsL : [];
   const sc = Math.min((W - 2 * PAD) / (2 * q.Rmax), (H - 2 * PAD) / q.H);
   const cx = W / 2, y0 = H - PAD - (H - 2 * PAD - q.H * sc) / 2;
   const X = (r) => cx + r * sc, Y = (z) => y0 - z * sc;
-  const n = pts.length;
+  const n = pR.length;
+  const sideName = (side) => (two ? t(side === 'L' ? 'editor.sideLeft' : 'editor.sideRight') : '');
+  const point = (side, sign) => (p, i) => ({
+    x: X(sign * p[1] * q.Rmax), y: Y(q.zb + p[0] * q.hb), end: false, side, i: i + 1,
+    label: t('editor.pointLabel', { i: i + 1, u: nf(p[0] * 100), d: nf(2 * p[1] * q.Rmax) }) + (two ? ` (${sideName(side)})` : ''),
+  });
   const handles = [
-    { x: X(q.Rb), y: Y(q.zb), end: true, label: t('editor.baseLabel', { d: nf(2 * q.Rb) }) },
-    ...pts.map((p, i) => ({ x: X(p[1] * q.Rmax), y: Y(q.zb + p[0] * q.hb), end: false, label: t('editor.pointLabel', { i: i + 1, u: nf(p[0] * 100), d: nf(2 * p[1] * q.Rmax) }) })),
-    { x: X(q.Rt), y: Y(q.zt), end: true, label: t('editor.topLabel', { d: nf(2 * q.Rt) }) },
+    { x: X(q.Rb), y: Y(q.zb), end: true, side: 'R', i: 0, label: t('editor.baseLabel', { d: nf(2 * q.Rb) }) },
+    ...pR.map(point('R', 1)),
+    { x: X(q.Rt), y: Y(q.zt), end: true, side: 'R', i: n + 1, label: t('editor.topLabel', { d: nf(2 * q.Rt) }) },
+    ...pL.map(point('L', -1)),
   ];
   const stepI = Math.max(1, Math.round(1 / q.dz));
-  const right = [], left = [], want = [];
+  const baseL = two ? q.baseL : q.base, wantL = two ? q.wantL : q.want;
+  const right = [], left = [], want = [], wantLeft = [];
   let clipped = 0;
   for (let i = 0; i <= q.M; i += stepI) {
     const y = Y(i * q.dz).toFixed(1);
     right.push(`${X(q.base[i]).toFixed(1)},${y}`);
-    left.push(`${X(-q.base[i]).toFixed(1)},${y}`);
+    left.push(`${X(-baseL[i]).toFixed(1)},${y}`);
     want.push(`${X(q.want[i]).toFixed(1)},${y}`);
-    clipped = Math.max(clipped, q.want[i] - q.base[i]);
+    if (two) wantLeft.push(`${X(-wantL[i]).toFixed(1)},${y}`);
+    clipped = Math.max(clipped, q.want[i] - q.base[i], wantL[i] - baseL[i]);
   }
   return {
-    cx, yTop: Y(q.H) - 6, yBot: Y(0) + 6, handles, n, clipped,
+    cx, yTop: Y(q.H) - 6, yBot: Y(0) + 6, handles, n, nL: pL.length, clipped, sideName,
     shape: `M${right.join('L')}L${left.reverse().join('L')}Z`,
-    want: `M${want.join('L')}`,
+    want: `M${want.join('L')}` + (two ? `M${wantLeft.join('L')}` : ''),
     toU: (y) => ((y0 - y) / sc - q.zb) / q.hb,
     toR: (x) => Math.abs(x - cx) / sc,
+    sideAt: (x) => (two && x < cx ? 'L' : 'R'),
   };
 });
 
-const sel = computed(() => Math.min(Math.max(view.selected, 0), geo.value.n + 1));
-const selIsEnd = computed(() => sel.value === 0 || sel.value === geo.value.n + 1);
-const selName = computed(() => (sel.value === 0 ? t('editor.base') : sel.value === geo.value.n + 1 ? t('editor.top') : t('editor.point', { i: sel.value, n: geo.value.n })));
-const selU = computed(() => (sel.value === 0 ? 0 : selIsEnd.value ? 100 : Math.round(params.pts[sel.value - 1][0] * 100)));
+/* view.selected indexes geo.handles; these convert to and from (side, index within the side). */
+const handleIndex = (side, i) => (side === 'L' && twoSides.value ? geo.value.n + 1 + i : i);
+const sel = computed(() => Math.min(Math.max(view.selected, 0), geo.value.handles.length - 1));
+const selH = computed(() => geo.value.handles[sel.value]);
+const selIsEnd = computed(() => selH.value.end);
+const selCount = computed(() => sidePts(selH.value.side).length);
+const selName = computed(() => {
+  const h = selH.value;
+  if (h.end) return t(h.i === 0 ? 'editor.base' : 'editor.top');
+  const name = t('editor.point', { i: h.i, n: selCount.value });
+  return twoSides.value ? `${name} · ${geo.value.sideName(h.side)}` : name;
+});
+const selU = computed(() => {
+  const h = selH.value;
+  return h.end ? (h.i === 0 ? 0 : 100) : Math.round(sidePts(h.side)[h.i - 1][0] * 100);
+});
 const selD = computed(() => {
-  const q = model.value.q;
-  return Math.round(sel.value === 0 ? 2 * q.Rb : selIsEnd.value ? 2 * q.Rt : 2 * params.pts[sel.value - 1][1] * q.Rmax);
+  const q = model.value.q, h = selH.value;
+  return Math.round(h.end ? 2 * (h.i === 0 ? q.Rb : q.Rt) : 2 * sidePts(h.side)[h.i - 1][1] * q.Rmax);
 });
 const note = computed(() => [
   geo.value.clipped > 0.6 ? t('editor.clipped', { mm: nf(geo.value.clipped, 1), limit: nf(params.shoulder) }) : t('editor.exact'),
-  t('editor.help'),
+  t(twoSides.value ? 'editor.helpTwo' : 'editor.help'),
 ].join(' '));
 
+function select(side, i) { if (i > 0) view.selected = handleIndex(side, i); }
 function at(e) {
   const b = svg.value.getBoundingClientRect();
   return [((e.clientX - b.left) * W) / b.width, ((e.clientY - b.top) * H) / b.height];
 }
+function hitHandle(x, y) {
+  let best = -1, bd = 22;
+  geo.value.handles.forEach((h, i) => { const d = Math.hypot(h.x - x, h.y - y); if (d < bd) { bd = d; best = i; } });
+  return best;
+}
 function onDown(e) {
   if (e.button !== 0) return;   // the right button opens the context menu instead
   const [x, y] = at(e);
-  let best = -1, bd = 22;
-  geo.value.handles.forEach((h, i) => { const d = Math.hypot(h.x - x, h.y - y); if (d < bd) { bd = d; best = i; } });
+  const best = hitHandle(x, y);
   if (best < 0) return;
   e.preventDefault();
   svg.value.setPointerCapture(e.pointerId);
@@ -73,44 +107,37 @@ function onDown(e) {
 }
 function onMove(e) {
   if (drag === null) return;
-  const [x, y] = at(e);
-  movePoint(drag, geo.value.toU(y), geo.value.toR(x));
+  const [x, y] = at(e), h = geo.value.handles[drag];
+  if (h) movePoint(h.i, geo.value.toU(y), geo.value.toR(x), h.side);
 }
 function onUp() { drag = null; }
 function onDbl(e) {
-  const [x, y] = at(e);
-  addPoint(geo.value.toU(y), geo.value.toR(x));
+  const [x, y] = at(e), side = geo.value.sideAt(x);
+  select(side, addPoint(geo.value.toU(y), geo.value.toR(x), side));
 }
-function onKey(e, i) {
-  const q = model.value.q, n = params.pts.length, big = e.shiftKey ? 5 : 1;
-  const end = i === 0 || i === n + 1;
-  const u = end ? null : params.pts[i - 1][0];
-  const r = i === 0 ? params.botD / 2 : i === n + 1 ? params.topD / 2 : params.pts[i - 1][1] * q.Rmax;
-  if (e.key === 'ArrowUp') { if (!end) movePoint(i, u + 0.01 * big, null); }
-  else if (e.key === 'ArrowDown') { if (!end) movePoint(i, u - 0.01 * big, null); }
-  else if (e.key === 'ArrowRight') movePoint(i, null, r + 0.5 * big);
-  else if (e.key === 'ArrowLeft') movePoint(i, null, r - 0.5 * big);
-  else if (e.key === 'Delete' || e.key === 'Backspace') removePoint(i);
-  else if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) onHandleMenu(e, i);
+function onKey(e, idx) {
+  const q = model.value.q, h = geo.value.handles[idx], big = e.shiftKey ? 5 : 1;
+  const pts = sidePts(h.side);
+  const u = h.end ? null : pts[h.i - 1][0];
+  const r = h.end ? (h.i === 0 ? params.botD / 2 : params.topD / 2) : pts[h.i - 1][1] * q.Rmax;
+  const out = h.side === 'L' ? -1 : 1;   // on the left half, ArrowLeft moves the wall outwards
+  if (e.key === 'ArrowUp') { if (!h.end) movePoint(h.i, u + 0.01 * big, null, h.side); }
+  else if (e.key === 'ArrowDown') { if (!h.end) movePoint(h.i, u - 0.01 * big, null, h.side); }
+  else if (e.key === 'ArrowRight') movePoint(h.i, null, r + 0.5 * big * out, h.side);
+  else if (e.key === 'ArrowLeft') movePoint(h.i, null, r - 0.5 * big * out, h.side);
+  else if (e.key === 'Delete' || e.key === 'Backspace') { if (!h.end) select(h.side, removePoint(h.i, h.side)); }
+  else if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) onHandleMenu(e, idx);
   else return;
   e.preventDefault();
 }
+
 /* Context menu (right click, long press on touch, or the menu key on a focused point): add a point
-   exactly where it was opened, or remove the point it was opened on. */
+   exactly where it was opened, on that half, or remove the point it was opened on. */
 const wrap = ref(null);
 const menu = ref(null);
 const menuEl = ref(null);
 let menuReturn = null;
 
-function canAddAt(u) {
-  const pts = params.pts || [];
-  return pts.length < 10 && u >= 0.03 && u <= 0.97 && !pts.some((p) => Math.abs(p[0] - u) < 0.03);
-}
-function hitHandle(x, y) {
-  let best = -1, bd = 22;
-  geo.value.handles.forEach((h, i) => { const d = Math.hypot(h.x - x, h.y - y); if (d < bd) { bd = d; best = i; } });
-  return best;
-}
 /* Vertical span of the viewport (in client pixels) left visible by el's scrolling ancestors. */
 function visibleSpan(el) {
   let top = 0, bottom = window.innerHeight;
@@ -126,16 +153,18 @@ function visibleSpan(el) {
 async function openMenu(x, y, index, returnTo) {
   const b = svg.value.getBoundingClientRect(), w = wrap.value.getBoundingClientRect();
   const u = geo.value.toU(y), r = geo.value.toR(x);
-  const n = geo.value.n;
-  const onPoint = index > 0 && index <= n;
+  const h = index >= 0 ? geo.value.handles[index] : null;
+  const side = h ? h.side : geo.value.sideAt(x);
+  const count = sidePts(side).length;
+  const onPoint = !!h && !h.end;
   menu.value = {
     left: b.left - w.left + (x * b.width) / W,
     top: b.top - w.top + (y * b.height) / H,
-    index, u, r,
-    canAdd: index < 0 && canAddAt(u),
-    full: n >= 10,
-    canRemove: onPoint && n > 1,
-    onPoint,
+    index, side, u, r, onPoint,
+    canAdd: !h && canAddPoint(u, side),
+    full: count >= 10,
+    canRemove: onPoint && count > 1,
+    pointIndex: h ? h.i : 0,
   };
   if (index >= 0) view.selected = index;
   menuReturn = returnTo || null;
@@ -165,19 +194,23 @@ function onContext(e) {
   const [x, y] = at(e);
   openMenu(x, y, hitHandle(x, y), null);
 }
-function onHandleMenu(e, i) {
-  const h = geo.value.handles[i];
-  openMenu(h.x, h.y, i, e.currentTarget);
+function onHandleMenu(e, idx) {
+  const h = geo.value.handles[idx];
+  openMenu(h.x, h.y, idx, e.currentTarget);
 }
 function menuAdd() {
   const m = menu.value;
   closeMenu(false);
-  if (m && addPoint(m.u, m.r)) nextTick(() => focusHandle(view.selected));
+  if (!m) return;
+  const i = addPoint(m.u, m.r, m.side);
+  if (i) { select(m.side, i); nextTick(() => focusHandle(view.selected)); }
 }
 function menuRemove() {
   const m = menu.value;
   closeMenu(false);
-  if (m) { removePoint(m.index); nextTick(() => focusHandle(view.selected)); }
+  if (!m) return;
+  select(m.side, removePoint(m.pointIndex, m.side));
+  nextTick(() => focusHandle(view.selected));
 }
 function menuReseed() { closeMenu(false); reseedPoints(); nextTick(() => focusHandle(view.selected)); }
 function focusHandle(i) {
@@ -196,12 +229,29 @@ function onOutside(e) { if (menu.value && menuEl.value && !menuEl.value.contains
 onMounted(() => document.addEventListener('pointerdown', onOutside, true));
 onBeforeUnmount(() => document.removeEventListener('pointerdown', onOutside, true));
 
-function setU(e) { const v = parseFloat(e.target.value); if (Number.isFinite(v)) movePoint(sel.value, v / 100, null); e.target.value = selU.value; }
-function setD(e) { const v = parseFloat(e.target.value); if (Number.isFinite(v)) movePoint(sel.value, null, v / 2); e.target.value = selD.value; }
+/* Buttons and number boxes act on the selected point's side. */
+function addInGap() { const side = selH.value.side; select(side, addPointInGap(side)); }
+function removeSelected() { const h = selH.value; if (!h.end) select(h.side, removePoint(h.i, h.side)); }
+function onSidesEqual(equal) {
+  const h = selH.value, keepRight = h.side === 'R' ? sel.value : 1;
+  setSidesEqual(equal);
+  view.selected = equal ? Math.min(keepRight, (params.pts || []).length) : keepRight;
+}
+function setU(e) {
+  const v = parseFloat(e.target.value), h = selH.value;
+  if (Number.isFinite(v)) movePoint(h.i, v / 100, null, h.side);
+  e.target.value = selU.value;
+}
+function setD(e) {
+  const v = parseFloat(e.target.value), h = selH.value;
+  if (Number.isFinite(v)) movePoint(h.i, null, v / 2, h.side);
+  e.target.value = selD.value;
+}
 </script>
 
 <template>
   <div ref="wrap" class="profile-editor" id="pe">
+    <SwitchField id="sidesEqual" :label="t('editor.sidesEqual')" :model-value="!twoSides" @update:model-value="onSidesEqual" />
     <svg
       ref="svg" id="pe-svg" :viewBox="`0 0 ${W} ${H}`" role="group"
       :aria-label="t('editor.aria')"
@@ -211,6 +261,10 @@ function setD(e) { const v = parseFloat(e.target.value); if (Number.isFinite(v))
       <line class="pe-axis" :x1="geo.cx" :x2="geo.cx" :y1="geo.yTop" :y2="geo.yBot" />
       <path class="pe-shape" :d="geo.shape" />
       <path class="pe-want" :d="geo.want" />
+      <template v-if="twoSides">
+        <text class="pe-side" x="6" y="14">{{ t('editor.sideLeft') }}</text>
+        <text class="pe-side" :x="W - 6" y="14" text-anchor="end">{{ t('editor.sideRight') }}</text>
+      </template>
       <template v-for="(h, i) in geo.handles" :key="i">
         <rect
           v-if="h.end" class="pe-h end" :class="{ sel: i === sel }" :x="h.x - 6" :y="h.y - 6" width="12" height="12" rx="2"
@@ -253,8 +307,8 @@ function setD(e) { const v = parseFloat(e.target.value); if (Number.isFinite(v))
       </span>
     </div>
     <div class="d-flex flex-wrap gap-2">
-      <button type="button" class="btn btn-sm btn-outline-secondary" id="pe-add" :disabled="geo.n >= 10" @click="addPointInGap">{{ t('editor.add') }}</button>
-      <button type="button" class="btn btn-sm btn-outline-secondary" id="pe-del" :disabled="selIsEnd || geo.n <= 1" @click="removePoint(sel)">{{ t('editor.remove') }}</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="pe-add" :disabled="selCount >= 10" @click="addInGap">{{ t('editor.add') }}</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="pe-del" :disabled="selIsEnd || selCount <= 1" @click="removeSelected">{{ t('editor.remove') }}</button>
       <button type="button" class="btn btn-sm btn-outline-secondary" id="pe-seed" @click="reseedPoints">{{ t('editor.reseed') }}</button>
     </div>
     <p class="form-text mb-0" id="pe-note">{{ note }}</p>
