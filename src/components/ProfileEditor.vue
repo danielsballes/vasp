@@ -162,8 +162,9 @@ function closeMenu(restoreFocus = true) {
 }
 function onContext(e) {
   e.preventDefault();
-  const [x, y] = at(e);
-  openMenu(x, y, hitHandle(x, y), null);
+  const [x, y] = at(e), i = hitHandle(x, y);
+  /* Escape returns focus to the point under the pointer, or to whatever had it before. */
+  openMenu(x, y, i, i >= 0 ? svg.value.querySelectorAll('.pe-h')[i] : document.activeElement);
 }
 function onHandleMenu(e, i) {
   const h = geo.value.handles[i];
