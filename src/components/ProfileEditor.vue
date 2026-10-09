@@ -180,7 +180,8 @@ async function openMenu(x, y, index, returnTo) {
     if (menu.value.left > maxLeft) menu.value.left = Math.max(0, menu.value.left - m.width - 16);
     menu.value.top = Math.max(minTop, Math.min(menu.value.top, maxTop));
   }
-  const first = menuEl.value && menuEl.value.querySelector('button:not(:disabled)');
+  /* Unavailable items stay focusable (aria-disabled) so their reason can be read; start on an available one. */
+  const first = menuEl.value && (menuEl.value.querySelector('button:not([aria-disabled="true"])') || menuEl.value.querySelector('button'));
   if (first) first.focus();
 }
 function closeMenu(restoreFocus = true) {
@@ -191,8 +192,9 @@ function closeMenu(restoreFocus = true) {
 }
 function onContext(e) {
   e.preventDefault();
-  const [x, y] = at(e);
-  openMenu(x, y, hitHandle(x, y), null);
+  const [x, y] = at(e), i = hitHandle(x, y);
+  /* Escape returns focus to the point under the pointer, or to whatever had it before. */
+  openMenu(x, y, i, i >= 0 ? svg.value.querySelectorAll('.pe-h')[i] : document.activeElement);
 }
 function onHandleMenu(e, idx) {
   const h = geo.value.handles[idx];
@@ -200,15 +202,15 @@ function onHandleMenu(e, idx) {
 }
 function menuAdd() {
   const m = menu.value;
+  if (!m || !m.canAdd) return;
   closeMenu(false);
-  if (!m) return;
   const i = addPoint(m.u, m.r, m.side);
   if (i) { select(m.side, i); nextTick(() => focusHandle(view.selected)); }
 }
 function menuRemove() {
   const m = menu.value;
+  if (!m || !m.canRemove) return;
   closeMenu(false);
-  if (!m) return;
   select(m.side, removePoint(m.pointIndex, m.side));
   nextTick(() => focusHandle(view.selected));
 }
@@ -218,7 +220,7 @@ function focusHandle(i) {
   if (el) el.focus();
 }
 function onMenuKey(e) {
-  const items = [...menuEl.value.querySelectorAll('button:not(:disabled)')];
+  const items = [...menuEl.value.querySelectorAll('button')];
   const k = items.indexOf(document.activeElement);
   if (e.key === 'Escape') { e.preventDefault(); closeMenu(); }
   else if (e.key === 'Tab') closeMenu();   // focus goes back to the opener, then Tab moves on from there
@@ -281,11 +283,11 @@ function setD(e) {
       v-if="menu" ref="menuEl" class="pe-menu" id="pe-menu" role="menu" :aria-label="t('editor.menuAria')"
       :style="{ left: menu.left + 'px', top: menu.top + 'px' }" @keydown="onMenuKey" @contextmenu.prevent
     >
-      <button v-if="!menu.onPoint" type="button" role="menuitem" class="pe-menu-item" :disabled="!menu.canAdd" @click="menuAdd">
+      <button v-if="menu.index < 0" type="button" role="menuitem" class="pe-menu-item" :aria-disabled="!menu.canAdd" @click="menuAdd">
         {{ t('editor.addHere') }}
-        <small v-if="menu.index < 0 && !menu.canAdd">{{ t(menu.full ? 'editor.addFull' : 'editor.addTooClose') }}</small>
+        <small v-if="!menu.canAdd">{{ t(menu.full ? 'editor.addFull' : 'editor.addTooClose') }}</small>
       </button>
-      <button v-if="menu.onPoint" type="button" role="menuitem" class="pe-menu-item" :disabled="!menu.canRemove" @click="menuRemove">
+      <button v-if="menu.onPoint" type="button" role="menuitem" class="pe-menu-item" :aria-disabled="!menu.canRemove" @click="menuRemove">
         {{ t('editor.removeThis') }}
         <small v-if="!menu.canRemove">{{ t('editor.removeLast') }}</small>
       </button>

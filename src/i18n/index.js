@@ -12,7 +12,7 @@ export const LOCALES = [
 ];
 export const DEFAULT_LOCALE = 'es';
 
-const STORE = 'torno-espiral-vue-locale';
+const STORE = 'vasp-locale';
 const known = (code) => LOCALES.some((l) => l.code === code);
 
 /* The language chosen earlier, else the first browser language the app speaks, else Spanish. */
