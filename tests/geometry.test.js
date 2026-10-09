@@ -168,4 +168,10 @@ describe('two-sided profile', () => {
     expect(p.ptsL).toEqual([[0.6, 0.7]]);
     expect(applyParams({ ...DEFAULTS }, { ptsL: [] }).ptsL).toBeNull();
   });
+
+  it('drops the old left points when a file has no ptsL (made before two sides)', () => {
+    const open = () => ({ ...DEFAULTS, profile: 'free', pts: [[0.5, 0.9]], ptsL: [[0.6, 0.7]] });
+    expect(applyParams(open(), { profile: 'free', pts: [[0.4, 1]] }).ptsL).toBeNull();
+    expect(applyParams(open(), { H: 150 }).ptsL).toEqual([[0.6, 0.7]]);
+  });
 });

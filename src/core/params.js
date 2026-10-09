@@ -83,6 +83,7 @@ export function applyParams(target, src) {
     else if (ENUMS[k] && ENUMS[k].includes(v)) target[k] = v;
     else if (k === 'pts' || k === 'ptsL') { const c = cleanPoints(v); target[k] = c.length ? c : null; }
   }
+  if ('pts' in src && !('ptsL' in src)) target.ptsL = null;   // older files: both sides follow pts
   if (target.profile === 'free' && !target.pts) target.profile = 'barrel';
   fitToNozzle(target, false);
   return target;
