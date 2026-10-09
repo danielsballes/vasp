@@ -121,3 +121,57 @@ describe('parameters file', () => {
     expect(paramsFromFile({ params: { foo: 1 } })).toBeNull();
   });
 });
+
+describe('two-sided profile', () => {
+  const gourd = presetParams(GOURD, DEFAULTS);
+  // the back (left half) keeps the gourd's heights but only reaches 70 % of the front's bulge
+  const back = gourd.pts.map(([u, r]) => [u, +(r * 0.7).toFixed(4)]);
+  const radiusAt = (g, j, i) => g.rr[j * g.nT + i];
+
+  it('equal sides give exactly the same mesh as a symmetric profile', () => {
+    const a = G.buildBody(G.derive(gourd), 180, 0.8);
+    const b = G.buildBody(G.derive({ ...gourd, ptsL: gourd.pts.map((p) => [...p]) }), 180, 0.8);
+    expect(Array.from(b.pos)).toEqual(Array.from(a.pos));
+  });
+
+  it('a different back exports as a closed solid with front and back apart', () => {
+    const q = G.derive({ ...gourd, ptsL: back });
+    expect(q.asym).toBe(true);
+    const g = G.buildBody(q, 180, 0.8);
+    const info = inspectSTL(toSTL(g, 'body'));
+    expect(info.openEdges).toBe(0);
+    expect(info.degenerate).toBe(0);
+    expect(info.volume).toBeGreaterThan(0);
+    const j = Math.round((q.zb + 0.2967 * q.hb) / q.H * (g.nZ - 1));   // the lower lobe
+    const front = radiusAt(g, j, 0), rear = radiusAt(g, j, g.nT / 2);
+    expect(rear / front).toBeLessThan(0.85);
+  });
+
+  it('the mouths stay round, so caps and threads still fit', () => {
+    const q = G.derive({ ...DEFAULTS, profile: 'free', pts: [[0.5, 1]], ptsL: [[0.5, 0.6]] });
+    const g = G.buildBody(q, 180, 0.8);
+    for (const j of [0, g.nZ - 1]) {
+      let lo = Infinity, hi = -Infinity;
+      for (let i = 0; i < g.nT; i++) { const r = radiusAt(g, j, i); lo = Math.min(lo, r); hi = Math.max(hi, r); }
+      expect(hi - lo).toBeLessThan(1e-3);
+    }
+  });
+
+  it('the blend never tilts the wall past the limit plus the ring headroom', () => {
+    const q = G.derive({ ...DEFAULTS, profile: 'free', pts: [[0.3, 1], [0.7, 0.8]], ptsL: [[0.4, 0.55], [0.8, 0.9]] });
+    const m = G.measure(G.buildBody(q, 192, 0.5, 6), false);
+    expect(m.overBody).toBeLessThanOrEqual(q.limit + 5.5);
+  });
+
+  it('loads and validates the left points like the right ones', () => {
+    const p = applyParams({ ...DEFAULTS }, { profile: 'free', pts: [[0.5, 0.9]], ptsL: [[0.6, 0.7], ['x', 1]] });
+    expect(p.ptsL).toEqual([[0.6, 0.7]]);
+    expect(applyParams({ ...DEFAULTS }, { ptsL: [] }).ptsL).toBeNull();
+  });
+
+  it('drops the old left points when a file has no ptsL (made before two sides)', () => {
+    const open = () => ({ ...DEFAULTS, profile: 'free', pts: [[0.5, 0.9]], ptsL: [[0.6, 0.7]] });
+    expect(applyParams(open(), { profile: 'free', pts: [[0.4, 1]] }).ptsL).toBeNull();
+    expect(applyParams(open(), { H: 150 }).ptsL).toEqual([[0.6, 0.7]]);
+  });
+});

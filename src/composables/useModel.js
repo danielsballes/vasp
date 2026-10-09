@@ -160,7 +160,8 @@ function applyPreset(index) { replaceParams(presetParams(index, params)); }
 function resetParams() { replaceParams({ ...DEFAULTS }); }
 /* An imported file only overrides the keys it has; the rest keep their current value. */
 function importParams(src) {
-  const next = applyParams({ ...params, pts: params.pts ? params.pts.map((p) => [...p]) : null }, src);
+  const copy = (pts) => (pts ? pts.map((p) => [...p]) : null);
+  const next = applyParams({ ...params, pts: copy(params.pts), ptsL: copy(params.ptsL) }, src);
   replaceParams(next);
 }
 /* Independent, validated copy of the current parameters (for saving a design). */
@@ -178,7 +179,7 @@ function setProfile(v) {
   if (v === 'free' && !(params.pts && params.pts.length)) { params.pts = seedPoints(params); view.selected = 3; }
   params.profile = v;
 }
-function reseedPoints() { params.pts = seedPoints(params); view.selected = 3; }
+function reseedPoints() { params.pts = seedPoints(params); params.ptsL = null; view.selected = 3; }
 /* A closed bottom removes the bottom thread along with the neck that only existed for it. */
 function setBase(v) {
   if (v === 'closed' && params.botThread) { params.botThread = false; params.botL = 0; }
@@ -191,9 +192,13 @@ function setThread(which, on) {
   if (on && params[lk] < 3 * params.pitch) params[lk] = Math.min(40, Math.ceil(4 * params.pitch));
 }
 
-/* Free-profile points. i = 0 is the base, i = n + 1 the top mouth; u and r may be null. */
-function movePoint(i, u, r) {
-  const pts = params.pts, n = pts.length, q = model.value.q;
+/* Free-profile points. `side` is 'R' (the right half, `pts`) or 'L' (the left half, `ptsL`, only
+   while the sides differ). i = 0 is the base and i = n + 1 the top mouth, shared by both sides;
+   u and r may be null. addPoint / addPointInGap / removePoint return the index, within its side,
+   of the point to select next (0 when nothing changed). */
+const sidePts = (side) => (side === 'L' && params.ptsL ? params.ptsL : params.pts);
+function movePoint(i, u, r, side = 'R') {
+  const pts = sidePts(side), n = pts.length, q = model.value.q;
   if (i === 0 || i === n + 1) {
     if (r === null) return;
     params[i === 0 ? 'botD' : 'topD'] = G.clamp(Math.round(2 * r), 6, Math.min(200, params.D));
@@ -204,33 +209,41 @@ function movePoint(i, u, r) {
   if (u !== null) pt[0] = +G.clamp(u, (i > 1 ? pts[i - 2][0] : 0) + 0.03, (i < n ? pts[i][0] : 1) - 0.03).toFixed(4);
   if (r !== null) pt[1] = +G.clamp(r / q.Rmax, 0.06, 1).toFixed(4);
 }
-function addPoint(u, r) {
-  const pts = params.pts;
-  if (pts.length >= 10 || u < 0.03 || u > 0.97 || pts.some((p) => Math.abs(p[0] - u) < 0.03)) return false;
+function canAddPoint(u, side = 'R') {
+  const pts = sidePts(side);
+  return pts.length < 10 && u >= 0.03 && u <= 0.97 && !pts.some((p) => Math.abs(p[0] - u) < 0.03);
+}
+function addPoint(u, r, side = 'R') {
+  if (!canAddPoint(u, side)) return 0;
+  const pts = sidePts(side);
   pts.push([+u.toFixed(4), +G.clamp(r / model.value.q.Rmax, 0.06, 1).toFixed(4)]);
   pts.sort((a, b) => a[0] - b[0]);
-  view.selected = 1 + pts.findIndex((p) => Math.abs(p[0] - u) < 1e-3);
-  return true;
+  return 1 + pts.findIndex((p) => Math.abs(p[0] - u) < 1e-3);
 }
-function addPointInGap() {
-  const q = model.value.q;
-  const us = [0, ...params.pts.map((p) => p[0]), 1];
+function addPointInGap(side = 'R') {
+  const q = model.value.q, pts = sidePts(side), base = side === 'L' && params.ptsL ? q.baseL : q.base;
+  const us = [0, ...pts.map((p) => p[0]), 1];
   let k = 0;
   for (let i = 1; i < us.length - 1; i++) if (us[i + 1] - us[i] > us[k + 1] - us[k]) k = i;
   const u = (us[k] + us[k + 1]) / 2;
-  return addPoint(u, q.base[Math.round((q.zb + u * q.hb) / q.dz)]);
+  return addPoint(u, base[Math.round((q.zb + u * q.hb) / q.dz)], side);
 }
-function removePoint(i) {
-  const pts = params.pts;
-  if (i < 1 || i > pts.length || pts.length <= 1) return;
+function removePoint(i, side = 'R') {
+  const pts = sidePts(side);
+  if (i < 1 || i > pts.length || pts.length <= 1) return 0;
   pts.splice(i - 1, 1);
-  view.selected = Math.min(i, pts.length);
+  return Math.min(i, pts.length);
+}
+/* Both halves of the free profile alike (ptsL = null) or each with its own points. Splitting
+   starts the left half as a copy of the right one, so the part does not change until edited. */
+function setSidesEqual(equal) {
+  params.ptsL = equal ? null : params.pts.map((p) => [...p]);
 }
 
 export function useModel() {
   return {
     params, view, session, model, stats, advice, hasCaps, isFree, nozzle, lwMax,
     applyPreset, resetParams, importParams, snapshotParams, loadDesignParams, applyFit, setNozzle, setProfile, reseedPoints, setBase, setThread,
-    movePoint, addPoint, addPointInGap, removePoint,
+    movePoint, canAddPoint, addPoint, addPointInGap, removePoint, setSidesEqual,
   };
 }

@@ -109,13 +109,53 @@ export function derive(p) {
   q.ramp = clamp(q.hb * 0.18, 4, 25);
 
   /* Base profile: a superelliptic barrel or a free curve through points, limited to the maximum
-     wall tilt starting from the radius of each mouth. */
+     wall tilt starting from the radius of each mouth. With `ptsL`, the left side (θ = π) gets its
+     own free profile and the right side (θ = 0) keeps `pts`; bodyR blends the two around. */
   const M = Math.max(8, Math.ceil(q.H / PZ));
   const dz = q.H / M;
+  const curveOf = (pts) => (p.curve === 'round' ? lobes : monotone)(
+    [q.zb, ...pts.map((pt) => q.zb + pt[0] * q.hb), q.zt], [q.Rb, ...pts.map((pt) => pt[1] * q.Rmax), q.Rt]);
+  const right = profileSide(q, M, dz, q.free ? curveOf(q.pts) : null);
+  q.ptsL = q.free ? cleanPoints(p.ptsL) : [];
+  q.asym = q.ptsL.length > 0;
+  const left = q.asym ? profileSide(q, M, dz, curveOf(q.ptsL)) : right;
+  q.want = right.want; q.wantL = left.want;   // requested profiles, before the tilt limit is applied
+  q.wantDeg = Math.max(right.wantDeg, left.wantDeg);
+  const base = right.base, slope = right.slope;
+  /* Relief of each ring: constant within the ring and trimmed so that, added to the tilt the wall
+     already has (and to the headroom the ribs use), it stays under the limit. */
+  q.ringAmp = new Float64Array(q.rings);
+  if (q.rings > 0) {
+    const sp = q.hb / q.rings, w = q.ringW;
+    const hasRibs = q.ribA !== 0;
+    const twistUse = hasRibs ? (Math.abs(q.ribA) * 0.5 * q.ribs * Math.abs(q.twist)) / (q.ribWf * q.hb) : 0;
+    const rampUse = hasRibs ? (Math.abs(q.ribA) * 1.5) / q.ramp : 0;
+    for (let k = 0; k < q.rings; k++) {
+      let A = Math.abs(q.ringA);
+      if (q.protect) {
+        const zr = q.zb + (k + 0.5) * sp;
+        const i0 = Math.max(0, Math.floor((zr - w / 2) / dz)), i1 = Math.min(M, Math.ceil((zr + w / 2) / dz));
+        let used = 0;
+        for (let i = i0; i <= i1; i++) {
+          const z = i * dz;
+          let u = Math.max(Math.abs(slope[i]), Math.abs(left.slope[i])) + twistUse;
+          if ((q.thB && z < q.zb + q.ramp) || (q.thT && z > q.zt - q.ramp)) u += rampUse;
+          if (u > used) used = u;
+        }
+        A = Math.min(A, (Math.max(0, q.tanMax - used) * w) / Math.PI);
+      }
+      q.ringAmp[k] = Math.sign(q.ringA) * A;
+    }
+  }
+  q.M = M; q.dz = dz; q.base = base; q.slope = slope;
+  q.baseL = left.base; q.slopeL = left.slope;
+  return q;
+}
+
+/* One side of the base profile: the free curve (or the barrel when `curve` is null) sampled every
+   dz, then limited to the maximum tilt from each mouth and smoothed. */
+function profileSide(q, M, dz, curve) {
   const base = new Float64Array(M + 1);
-  const curve = q.free
-    ? (p.curve === 'round' ? lobes : monotone)([q.zb, ...q.pts.map((pt) => q.zb + pt[0] * q.hb), q.zt], [q.Rb, ...q.pts.map((pt) => pt[1] * q.Rmax), q.Rt])
-    : null;
   for (let i = 0; i <= M; i++) {
     const z = i * dz;
     if (z <= q.zb) { base[i] = q.Rb; continue; }
@@ -126,10 +166,9 @@ export function derive(p) {
     const barrel = q.Rmax * Math.pow(Math.max(0, 1 - Math.pow(u, q.n)), 1 / q.n);
     base[i] = Math.max(barrel, lower ? q.Rb : q.Rt);
   }
-  q.want = Float64Array.from(base);   // requested profile, before the tilt limit is applied
+  const want = Float64Array.from(base);
   let wmax = 0;
   for (let i = 1; i <= M; i++) wmax = Math.max(wmax, Math.abs(base[i] - base[i - 1]) / dz);
-  q.wantDeg = (Math.atan(wmax) * 180) / Math.PI;
   const ib = Math.min(M, Math.round(q.zb / dz));
   const it = Math.max(0, Math.round(q.zt / dz));
   const step = dz * q.tanS;
@@ -150,33 +189,7 @@ export function derive(p) {
     const a = Math.max(0, i - 1), b = Math.min(M, i + 1);
     slope[i] = (base[b] - base[a]) / ((b - a) * dz);
   }
-  /* Relief of each ring: constant within the ring and trimmed so that, added to the tilt the wall
-     already has (and to the headroom the ribs use), it stays under the limit. */
-  q.ringAmp = new Float64Array(q.rings);
-  if (q.rings > 0) {
-    const sp = q.hb / q.rings, w = q.ringW;
-    const hasRibs = q.ribA !== 0;
-    const twistUse = hasRibs ? (Math.abs(q.ribA) * 0.5 * q.ribs * Math.abs(q.twist)) / (q.ribWf * q.hb) : 0;
-    const rampUse = hasRibs ? (Math.abs(q.ribA) * 1.5) / q.ramp : 0;
-    for (let k = 0; k < q.rings; k++) {
-      let A = Math.abs(q.ringA);
-      if (q.protect) {
-        const zr = q.zb + (k + 0.5) * sp;
-        const i0 = Math.max(0, Math.floor((zr - w / 2) / dz)), i1 = Math.min(M, Math.ceil((zr + w / 2) / dz));
-        let used = 0;
-        for (let i = i0; i <= i1; i++) {
-          const z = i * dz;
-          let u = Math.abs(slope[i]) + twistUse;
-          if ((q.thB && z < q.zb + q.ramp) || (q.thT && z > q.zt - q.ramp)) u += rampUse;
-          if (u > used) used = u;
-        }
-        A = Math.min(A, (Math.max(0, q.tanMax - used) * w) / Math.PI);
-      }
-      q.ringAmp[k] = Math.sign(q.ringA) * A;
-    }
-  }
-  q.M = M; q.dz = dz; q.base = base; q.slope = slope;
-  return q;
+  return { base, want, slope, wantDeg: (Math.atan(wmax) * 180) / Math.PI };
 }
 
 /* ---------- body ---------- */
@@ -186,6 +199,7 @@ export function bodyRow(q, z) {
   const i = Math.min(q.M - 1, Math.max(0, Math.floor(t)));
   const f = clamp(t - i, 0, 1);
   row.base = q.base[i] * (1 - f) + q.base[i + 1] * f;
+  row.baseL = q.asym ? q.baseL[i] * (1 - f) + q.baseL[i + 1] * f : row.base;
   if (z >= q.zb && z <= q.zt) {
     if (q.rings > 0 && q.ringA !== 0) {
       const sp = q.hb / q.rings;
@@ -220,13 +234,23 @@ export function bodyRow(q, z) {
   return row;
 }
 
+/* Radius of the base profile at angle th: the right profile at θ = 0, the left one at θ = π, and a
+   cosine blend in between, so the cross-section stays smooth and the wall never tilts more than
+   the steeper of the two sides. */
+function baseAt(row, th) {
+  if (row.baseL === row.base) return row.base;
+  const w = 0.5 + 0.5 * Math.cos(th);
+  return row.baseL + (row.base - row.baseL) * w;
+}
 export function bodyR(q, row, th) {
-  let r = row.base + row.add;
+  const b = baseAt(row, th);
+  let r = b + row.add;
   if (row.ribAmp !== 0) {
     const u = ((th - row.tw) * q.ribs) / TAU;
     const d = u - Math.round(u);
     const ad = Math.abs(d);
-    if (ad < q.ribWf / 2) r += row.ribAmp * (q.ribCrest ? 1 - Math.sin((Math.PI * ad) / q.ribWf) : 0.5 * (1 + Math.cos((TAU * d) / q.ribWf)));
+    const amp = q.ribProp && row.base > 0 ? (row.ribAmp * b) / row.base : row.ribAmp;
+    if (ad < q.ribWf / 2) r += amp * (q.ribCrest ? 1 - Math.sin((Math.PI * ad) / q.ribWf) : 0.5 * (1 + Math.cos((TAU * d) / q.ribWf)));
   }
   if (row.th) {
     const g = 0.5 + 0.5 * Math.cos(row.ph - th);
