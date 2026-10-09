@@ -232,9 +232,9 @@ function setD(e) { const v = parseFloat(e.target.value); if (Number.isFinite(v))
       v-if="menu" ref="menuEl" class="pe-menu" id="pe-menu" role="menu" :aria-label="t('editor.menuAria')"
       :style="{ left: menu.left + 'px', top: menu.top + 'px' }" @keydown="onMenuKey" @contextmenu.prevent
     >
-      <button v-if="!menu.onPoint" type="button" role="menuitem" class="pe-menu-item" :aria-disabled="!menu.canAdd" @click="menuAdd">
+      <button v-if="menu.index < 0" type="button" role="menuitem" class="pe-menu-item" :aria-disabled="!menu.canAdd" @click="menuAdd">
         {{ t('editor.addHere') }}
-        <small v-if="menu.index < 0 && !menu.canAdd">{{ t(menu.full ? 'editor.addFull' : 'editor.addTooClose') }}</small>
+        <small v-if="!menu.canAdd">{{ t(menu.full ? 'editor.addFull' : 'editor.addTooClose') }}</small>
       </button>
       <button v-if="menu.onPoint" type="button" role="menuitem" class="pe-menu-item" :aria-disabled="!menu.canRemove" @click="menuRemove">
         {{ t('editor.removeThis') }}
