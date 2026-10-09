@@ -172,7 +172,8 @@ function focusHandle(i) {
 function onMenuKey(e) {
   const items = [...menuEl.value.querySelectorAll('button:not(:disabled)')];
   const k = items.indexOf(document.activeElement);
-  if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); closeMenu(); }
+  if (e.key === 'Escape') { e.preventDefault(); closeMenu(); }
+  else if (e.key === 'Tab') closeMenu();   // focus goes back to the opener, then Tab moves on from there
   else if (e.key === 'ArrowDown') { e.preventDefault(); items[(k + 1) % items.length].focus(); }
   else if (e.key === 'ArrowUp') { e.preventDefault(); items[(k - 1 + items.length) % items.length].focus(); }
 }
