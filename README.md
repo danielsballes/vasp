@@ -75,10 +75,10 @@ tests/             Unit tests: geometry, saved designs and message files
   vue-i18n: functions that produce text receive the translator as an argument.
 - **Persistence:** everything is kept in the browser's local storage (not session storage, which is
   discarded when the tab closes), under three keys:
-  - `torno-espiral-vue-v1`: the working state (parameters, view options, name of the design being
+  - `vasp-v1`: the working state (parameters, view options, name of the design being
     edited), written on every change so the page reopens as it was left.
-  - `torno-espiral-vue-designs-v1`: the designs saved by name in the "My designs" section.
-  - `torno-espiral-vue-locale`: the interface language.
+  - `vasp-designs-v1`: the designs saved by name in the "My designs" section.
+  - `vasp-locale`: the interface language.
 
   Local storage belongs to one browser on one machine and is wiped when the site data is cleared.
   "Back up" downloads every saved design as one JSON file and "Restore" merges such a file back,

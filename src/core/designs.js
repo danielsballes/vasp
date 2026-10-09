@@ -3,7 +3,7 @@ import { cloneParams } from './params.js';
 /* Library of saved designs: a list of { id, name, savedAt, params } kept most recent first.
    Pure functions that return new lists; the storage itself lives in composables/useDesigns.js. */
 
-export const DESIGNS_KIND = 'torno-espiral-designs';
+export const DESIGNS_KIND = 'vasp-designs';
 export const DESIGNS_VERSION = 1;
 export const NAME_MAX = 60;
 

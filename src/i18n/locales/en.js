@@ -180,7 +180,13 @@ export default {
     reseed: 'Back to barrel',
     clipped: 'The dashed line is the profile you drew; the filled silhouette is what gets printed, trimmed by up to {mm} mm to stay under {limit}° of tilt. Raise the maximum tilt for a rounder shape.',
     exact: 'The drawn profile prints as is.',
-    help: 'Double-click the drawing to add a point; the squares move the base and the mouth.',
+    help: 'Double-click the drawing to add a point, right-click it for a menu to add or remove points; the squares move the base and the mouth.',
+    menuAria: 'Profile actions',
+    addHere: 'Add point here',
+    addFull: 'Already 10 points, the maximum',
+    addTooClose: 'Too close to another point or an end',
+    removeThis: 'Remove this point',
+    removeLast: 'The profile needs at least one point',
   },
   exporting: {
     loadParams: 'Load parameters',
@@ -225,7 +231,7 @@ export default {
     caps: 'slice them separately, in normal mode without spiral, with the closed face on the bed. The inner thread tilts {over}°, so it should not need supports.',
   },
   readme: {
-    heading: 'TORNO ESPIRAL · Ad Astra',
+    heading: 'VASP · Ad Astra',
     part: 'Part: {h} mm tall, {d} mm actual diameter.',
     units: 'Units: millimetres. Z axis up. Every STL is a closed solid.',
     contour: 'The body has a single contour per layer, ready for spiral vase mode.',

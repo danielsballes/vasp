@@ -180,7 +180,13 @@ export default {
     reseed: 'Volver al barril',
     clipped: 'La línea punteada es el perfil dibujado; la silueta llena es la que se imprime, recortada hasta {mm} mm para no pasar de {limit}° de inclinación. Para redondear más, suba la inclinación máxima.',
     exact: 'El perfil dibujado se imprime tal cual.',
-    help: 'Doble clic sobre el dibujo agrega un punto; los cuadros mueven la base y la boca.',
+    help: 'Doble clic sobre el dibujo agrega un punto y clic derecho abre un menú para agregar o quitar puntos; los cuadros mueven la base y la boca.',
+    menuAria: 'Acciones del perfil',
+    addHere: 'Agregar punto aquí',
+    addFull: 'Ya hay 10 puntos, el máximo',
+    addTooClose: 'Muy cerca de otro punto o de un extremo',
+    removeThis: 'Quitar este punto',
+    removeLast: 'El perfil necesita al menos un punto',
   },
   exporting: {
     loadParams: 'Cargar parámetros',
@@ -225,7 +231,7 @@ export default {
     caps: 'lamínelas aparte, en modo normal y sin espiral, con la cara cerrada sobre la cama. La rosca interna se inclina {over}°, así que no debería pedir soportes.',
   },
   readme: {
-    heading: 'TORNO ESPIRAL · Ad Astra',
+    heading: 'VASP · Ad Astra',
     part: 'Pieza: {h} mm de alto, {d} mm de diámetro real.',
     units: 'Unidades: milímetros. Eje Z hacia arriba. Todos los STL son sólidos cerrados.',
     contour: 'El cuerpo tiene un solo contorno por capa, listo para el modo jarrón en espiral.',
