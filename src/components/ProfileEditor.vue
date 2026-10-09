@@ -111,6 +111,17 @@ function hitHandle(x, y) {
   geo.value.handles.forEach((h, i) => { const d = Math.hypot(h.x - x, h.y - y); if (d < bd) { bd = d; best = i; } });
   return best;
 }
+/* Vertical span of the viewport (in client pixels) left visible by el's scrolling ancestors. */
+function visibleSpan(el) {
+  let top = 0, bottom = window.innerHeight;
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    if (!/auto|scroll/.test(getComputedStyle(p).overflowY)) continue;
+    const r = p.getBoundingClientRect();
+    top = Math.max(top, r.top);
+    bottom = Math.min(bottom, r.bottom);
+  }
+  return [top, bottom];
+}
 /* (x, y) are in SVG units; the menu is placed in CSS pixels inside the editor. */
 async function openMenu(x, y, index, returnTo) {
   const b = svg.value.getBoundingClientRect(), w = wrap.value.getBoundingClientRect();
@@ -129,12 +140,16 @@ async function openMenu(x, y, index, returnTo) {
   if (index >= 0) view.selected = index;
   menuReturn = returnTo || null;
   await nextTick();
-  /* Keep the menu inside the editor: the panel scrolls and would clip anything that sticks out. */
+  /* Keep the menu inside the part of the editor that can be seen: the panel scrolls and would clip
+     anything that sticks out. `dy` is the CSS translate the menu is drawn with. */
   if (menuEl.value) {
-    const m = menuEl.value.getBoundingClientRect();
-    const maxLeft = w.width - m.width - 4, maxTop = w.height - m.height - 4;
+    const m = menuEl.value.getBoundingClientRect(), [visTop, visBottom] = visibleSpan(wrap.value);
+    const dy = m.top - w.top - menu.value.top;
+    const minTop = Math.max(0, visTop - w.top) - dy;
+    const maxTop = Math.min(w.height, visBottom - w.top) - m.height - 4 - dy;
+    const maxLeft = w.width - m.width - 4;
     if (menu.value.left > maxLeft) menu.value.left = Math.max(0, menu.value.left - m.width - 16);
-    menu.value.top = Math.max(0, Math.min(menu.value.top, maxTop));
+    menu.value.top = Math.max(minTop, Math.min(menu.value.top, maxTop));
   }
   const first = menuEl.value && menuEl.value.querySelector('button:not(:disabled)');
   if (first) first.focus();
