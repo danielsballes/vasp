@@ -284,8 +284,8 @@ button.chip { font-family: inherit; line-height: inherit; }
   padding: 0.4rem 0.6rem; border: 0; border-radius: var(--bs-border-radius-sm);
   background: none; color: var(--aa-ink); font: inherit; font-size: 0.8125rem; text-align: left; cursor: pointer;
 }
-.pe-menu-item:hover:not(:disabled), .pe-menu-item:focus-visible { background: var(--aa-surface); outline: 2px solid var(--aa-accent-ui); outline-offset: -2px; }
-.pe-menu-item:disabled { color: var(--aa-muted); cursor: default; }
+.pe-menu-item:hover:not([aria-disabled="true"]), .pe-menu-item:focus-visible { background: var(--aa-surface); outline: 2px solid var(--aa-accent-ui); outline-offset: -2px; }
+.pe-menu-item[aria-disabled="true"] { color: var(--aa-muted); cursor: default; }
 .pe-menu-item small { font-size: 0.72rem; color: var(--aa-muted); }
 .profile-editor svg { width: 100%; height: auto; display: block; touch-action: none; border: 1px solid var(--aa-line); border-radius: var(--bs-border-radius); background: var(--aa-field); }
 .profile-editor .num-box .form-control { width: 3.6rem; }
