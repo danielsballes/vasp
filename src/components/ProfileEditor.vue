@@ -237,7 +237,7 @@ function removeSelected() { const h = selH.value; if (!h.end) select(h.side, rem
 function onSidesEqual(equal) {
   const h = selH.value, keepRight = h.side === 'R' ? sel.value : 1;
   setSidesEqual(equal);
-  view.selected = equal ? Math.min(keepRight, (params.pts || []).length) : keepRight;
+  view.selected = equal ? Math.min(keepRight, (params.pts || []).length + 1) : keepRight;
 }
 function setU(e) {
   const v = parseFloat(e.target.value), h = selH.value;
