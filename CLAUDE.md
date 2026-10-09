@@ -66,7 +66,7 @@ Run `pnpm lint` and `pnpm test` before every commit. Both must pass.
   - On `main`, semantic-release creates the `vX.Y.Z` tag and the GitHub release from the commit
     types (`fix` patch, `feat` minor, `!` major) and attaches `vasp-X.Y.Z.zip`.
   - `next` makes prereleases.
-  - Current release: v1.0.0.
+  - Releases and the current version: https://github.com/danielsballes/vasp/releases.
 - `.github/workflows/deploy-pages.yml` publishes to GitHub Pages only after "Verify and Release"
   passed on a push to `main`.
 
