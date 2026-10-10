@@ -98,6 +98,7 @@ export default {
     designs: 'saved: {n}',
   },
   fields: {
+    neckBlend: 'Transition into the mouth',
     withUnit: '{label} in {unit}',
     nozzle: 'Nozzle',
     nozzleSize: '{d} mm',
@@ -141,6 +142,7 @@ export default {
     base: { open: 'Open', closed: 'Closed' },
   },
   hints: {
+    neckBlend: 'Redraws this stretch of the body under the mouth as a curve that meets the neck upright, with no sharp turn. At 0 the shape stays as it is.',
     lh: 'With a {nozzle} mm nozzle the Qidi Q2 takes {min} to {max} mm. Orca profiles: {profiles}.',
     lw: 'The Orca profile for this nozzle uses {def} mm, and its wiki advises against going over 150 % of the nozzle ({max} mm). Use the same value here as in the slicer.',
     squareness: '2 gives a round profile; high values leave the sides straight.',

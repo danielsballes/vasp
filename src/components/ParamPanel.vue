@@ -195,6 +195,7 @@ function onReset() { resetParams(); setStatus('exporting.resetDone'); }
       <SwitchField id="topThread" :label="t('fields.thread')" :model-value="params.topThread" @update:model-value="setThread('top', $event)" />
       <RangeField id="topD" :label="t('fields.mouthDiameter')" unit="mm" :min="6" :max="200" :step="1" v-model="params.topD" />
       <RangeField id="topL" :label="t('fields.neckLength')" unit="mm" :min="0" :max="40" :step="1" v-model="params.topL" />
+      <RangeField id="neckBlend" :label="t('fields.neckBlend')" unit="mm" :min="0" :max="80" :step="1" :hint="t('hints.neckBlend')" v-model="params.neckBlend" />
       <p class="form-text mb-0" :class="{ 'text-warn': noteTop.warn }" id="note-top">{{ noteTop.text }}</p>
     </PanelSection>
 

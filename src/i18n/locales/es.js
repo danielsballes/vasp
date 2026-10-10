@@ -98,6 +98,7 @@ export default {
     designs: 'guardados: {n}',
   },
   fields: {
+    neckBlend: 'Transición hacia la boca',
     withUnit: '{label} en {unit}',
     nozzle: 'Boquilla',
     nozzleSize: '{d} mm',
@@ -141,6 +142,7 @@ export default {
     base: { open: 'Abierto', closed: 'Cerrado' },
   },
   hints: {
+    neckBlend: 'Rehace este tramo del cuerpo bajo la boca como una curva que llega recta al cuello, sin quiebre. En 0 la forma queda como está.',
     lh: 'Con boquilla de {nozzle} mm la Qidi Q2 admite de {min} a {max} mm. Perfiles de Orca: {profiles}.',
     lw: 'El perfil de Orca para esta boquilla usa {def} mm, y su wiki desaconseja pasar del 150 % de la boquilla ({max} mm). Use aquí el mismo valor que en el slicer.',
     squareness: '2 da un perfil redondo; los valores altos dejan los costados rectos.',

@@ -175,3 +175,37 @@ describe('two-sided profile', () => {
     expect(applyParams(open(), { H: 150 }).ptsL).toEqual([[0.6, 0.7]]);
   });
 });
+
+describe('transition into the mouth', () => {
+  /* the gourd with a straight neck and smooth segments: its shoulder meets the neck in a short turn */
+  const necked = { ...presetParams(GOURD, DEFAULTS), topL: 30, shoulder: 80, curve: 'smooth' };
+  const tiltAt = (shape, height) => (Math.atan(Math.abs(shape.slope[Math.round(height / shape.dz)])) * 180) / Math.PI;
+
+  it('0 leaves the part as it was', () => {
+    const before = G.buildBody(G.derive(necked), 180, 0.8);
+    const withZero = G.buildBody(G.derive({ ...necked, neckBlend: 0 }), 180, 0.8);
+    expect(Array.from(withZero.pos)).toEqual(Array.from(before.pos));
+  });
+
+  it('reaches the neck upright through a flare, and leaves the body further down as it was', () => {
+    const plain = G.derive(necked), blended = G.derive({ ...necked, neckBlend: 40 });
+    const neckStart = blended.zt;
+    expect(tiltAt(plain, neckStart - 5)).toBeGreaterThan(10);   // without it the wall still leans 5 mm under the neck
+    expect(tiltAt(blended, neckStart - 1)).toBeLessThan(5);
+    for (let height = neckStart - 18; height < neckStart - 1; height += 1) {
+      expect(tiltAt(blended, height + 1)).toBeLessThanOrEqual(tiltAt(blended, height) + 0.5);   // the tilt only eases off
+    }
+    /* below the flare and the rounding of its corner the body is untouched */
+    const untouchedUpTo = Math.round((neckStart - 40 - 35) / blended.dz);
+    for (let sample = 0; sample <= untouchedUpTo; sample++) expect(blended.base[sample]).toBeCloseTo(plain.base[sample], 9);
+    expect(blended.base[Math.round(neckStart / blended.dz)]).toBeCloseTo(blended.Rt, 9);
+  });
+
+  it('stays within the tilt limit and exports as a closed solid', () => {
+    const shape = G.derive({ ...necked, shoulder: 45, neckBlend: 60 });
+    for (const slope of shape.slope) expect(Math.abs(slope)).toBeLessThanOrEqual(shape.tanS + 1e-9);
+    const info = inspectSTL(toSTL(G.buildBody(shape, 180, 0.8), 'body'));
+    expect(info.openEdges).toBe(0);
+    expect(info.volume).toBeGreaterThan(0);
+  });
+});
