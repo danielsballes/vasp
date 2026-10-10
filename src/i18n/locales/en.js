@@ -170,6 +170,8 @@ export default {
     exportInfo: 'Mesh step: {deg}° around and {dz} mm in height. A ZIP is saved with the STL files ({count}), the parameters and a printing note.',
   },
   editor: {
+    smooth: 'Smooth',
+    smoothHint: 'Rounds the shape off a little; every click smooths it further.',
     dropBack: 'at the back',
     dropFront: 'at the front',
     dropLabel: '{mm} mm lower',

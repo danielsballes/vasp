@@ -60,6 +60,33 @@ export function cleanPoints(pts) {
   return res.slice(0, 12);
 }
 
+/* One smoothing pass over the free-profile points (u, r), with the base (0, r0) and the mouth
+   (1, r1) as fixed ends: the whole curve through them is blurred (a gaussian over the height) and
+   stretched back to its previous widest radius, then read again at the same heights. Repeated
+   passes fill waists and merge bellies into one round shape without making the part thinner. */
+export function smoothPoints(pts, r0, r1, sigma = 0.06) {
+  if (!pts.length) return pts;
+  const N = 200, curve = monotone([0, ...pts.map((p) => p[0]), 1], [r0, ...pts.map((p) => p[1]), r1]);
+  const at = (k) => (k <= 0 ? r0 : k >= N ? r1 : curve(k / N));
+  const R = Array.from({ length: N + 1 }, (_, k) => at(k));
+  const w = Math.ceil(3 * sigma * N), kern = Array.from({ length: 2 * w + 1 }, (_, k) => Math.exp(-(((k - w) / (sigma * N)) ** 2) / 2));
+  const blur = R.map((_, k) => {
+    let a = 0, b = 0;
+    for (let d = -w; d <= w; d++) { a += kern[d + w] * at(k + d); b += kern[d + w]; }
+    return a / b;
+  });
+  /* Stretch what sticks out of the line between the ends so the widest radius stays the same. */
+  const line = (k) => r0 + ((r1 - r0) * k) / N;
+  let top = 0;
+  for (let k = 1; k < N; k++) if (blur[k] - line(k) > blur[top] - line(top)) top = k;
+  const max = Math.max(...R), lift = blur[top] - line(top), s = lift > 1e-6 ? Math.max(1, (max - line(top)) / lift) : 1;
+  return pts.map(([u]) => {
+    const k = u * N, k0 = Math.floor(k), f = k - k0;
+    const v = (blur[k0] - line(k0)) * (1 - f) + (blur[Math.min(N, k0 + 1)] - line(Math.min(N, k0 + 1))) * f;
+    return [u, +clamp(r0 + (r1 - r0) * u + s * v, 0.06, 1).toFixed(4)];
+  });
+}
+
 /* ---------- derived parameters and base profile ---------- */
 export function derive(p) {
   const q = {};

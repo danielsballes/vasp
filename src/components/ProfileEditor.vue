@@ -13,7 +13,7 @@ import SwitchField from './SwitchField.vue';
    Each half has its own mouth handle: dragging one down lowers the mouth on that side (an uneven
    mouth, see mouthDrop), and that half is drawn as low as it really is. */
 const { t } = useI18n();
-const { params, model, view, movePoint, canAddPoint, addPoint, addPointInGap, removePoint, reseedPoints, setSidesEqual, mouthDropOf, setMouthDrop, moveMouth } = useModel();
+const { params, model, view, movePoint, canAddPoint, addPoint, addPointInGap, removePoint, reseedPoints, smoothProfile, setSidesEqual, mouthDropOf, setMouthDrop, moveMouth } = useModel();
 
 const W = 320, H = 300, PAD = 18;
 const svg = ref(null);
@@ -330,6 +330,7 @@ function setD(e) {
     <div class="d-flex flex-wrap gap-2">
       <button type="button" class="btn btn-sm btn-outline-secondary" id="pe-add" :disabled="selCount >= 10" @click="addInGap">{{ t('editor.add') }}</button>
       <button type="button" class="btn btn-sm btn-outline-secondary" id="pe-del" :disabled="selIsEnd || selCount <= 1" @click="removeSelected">{{ t('editor.remove') }}</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="pe-smooth" :title="t('editor.smoothHint')" @click="smoothProfile">{{ t('editor.smooth') }}</button>
       <button type="button" class="btn btn-sm btn-outline-secondary" id="pe-seed" @click="reseedPoints">{{ t('editor.reseed') }}</button>
     </div>
     <p class="form-text mb-0" id="pe-note">{{ note }}</p>

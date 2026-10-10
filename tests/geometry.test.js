@@ -248,3 +248,44 @@ describe('uneven mouth', () => {
     expect(q.dropMax).toBeCloseTo(q.H - q.dropFrom - 3, 6);   // down to 3 mm above the highest point
   });
 });
+
+describe('smoothing the free profile', () => {
+  /* how far each point sits from the line between its neighbours */
+  const roughness = (pts, r0, r1) => pts.reduce((sum, p, i) => {
+    const a = i > 0 ? pts[i - 1] : [0, r0], b = i < pts.length - 1 ? pts[i + 1] : [1, r1];
+    const line = a[1] + ((b[1] - a[1]) * (p[0] - a[0])) / (b[0] - a[0]);
+    return sum + (p[1] - line) ** 2;
+  }, 0);
+  const belly = (pts) => Math.max(...pts.map((p) => p[1]));
+  const zigzag = [[0.15, 1], [0.3, 0.4], [0.45, 1], [0.6, 0.35], [0.75, 0.95], [0.9, 0.3]];
+
+  it('each pass leaves the profile smoother, with the same heights and the same widest radius', () => {
+    let pts = zigzag, prev = roughness(pts, 0.5, 0.5);
+    for (let k = 0; k < 5; k++) {
+      pts = G.smoothPoints(pts, 0.5, 0.5);
+      const now = roughness(pts, 0.5, 0.5);
+      expect(now).toBeLessThan(prev);
+      prev = now;
+      expect(pts.map((p) => p[0])).toEqual(zigzag.map((p) => p[0]));
+      for (const [, r] of pts) { expect(r).toBeGreaterThanOrEqual(0.06); expect(r).toBeLessThanOrEqual(1); }
+      expect(belly(pts)).toBeGreaterThan(0.95);   // the curve keeps its widest radius; a point may sit just off it
+    }
+  });
+
+  it('fills the waist of the gourd a little more with every click', () => {
+    const g = presetParams(GOURD, DEFAULTS), q = G.derive(g);
+    let pts = g.pts, waist = pts[1][1];
+    for (let k = 0; k < 4; k++) {
+      pts = G.smoothPoints(pts, q.Rb / q.Rmax, q.Rt / q.Rmax);
+      expect(pts[1][1]).toBeGreaterThan(waist);
+      waist = pts[1][1];
+      expect(belly(pts)).toBeGreaterThan(0.95);   // the curve keeps its widest radius; a point may sit just off it
+    }
+  });
+
+  it('barely changes a profile that is already smooth', () => {
+    const pts = seedPoints(DEFAULTS), q = G.derive({ ...DEFAULTS, profile: 'free', pts });
+    const out = G.smoothPoints(pts, q.Rb / q.Rmax, q.Rt / q.Rmax);
+    out.forEach((p, i) => expect(Math.abs(p[1] - pts[i][1])).toBeLessThan(0.06));
+  });
+});

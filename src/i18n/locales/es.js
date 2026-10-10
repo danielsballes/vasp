@@ -170,6 +170,8 @@ export default {
     exportInfo: 'Paso de malla: {deg}° alrededor y {dz} mm en altura. Se guarda un ZIP con los STL ({count}), los parámetros y una nota de impresión.',
   },
   editor: {
+    smooth: 'Suavizar',
+    smoothHint: 'Redondea un poco la forma; cada clic la suaviza más.',
     dropBack: 'por detrás',
     dropFront: 'por delante',
     dropLabel: '{mm} mm más baja',

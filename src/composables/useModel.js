@@ -182,6 +182,12 @@ function setProfile(v) {
   if (v === 'free' && !(params.pts && params.pts.length)) { params.pts = seedPoints(params); view.selected = 3; }
   params.profile = v;
 }
+/* One smoothing pass over both halves of the free profile; repeated clicks keep rounding it. */
+function smoothProfile() {
+  const q = model.value.q, r0 = q.Rb / q.Rmax, r1 = q.Rt / q.Rmax;
+  if (params.pts) params.pts = G.smoothPoints(params.pts, r0, r1);
+  if (params.ptsL) params.ptsL = G.smoothPoints(params.ptsL, r0, r1);
+}
 function reseedPoints() { params.pts = seedPoints(params); params.ptsL = null; view.selected = 3; }
 /* A closed bottom removes the bottom thread along with the neck that only existed for it. */
 function setBase(v) {
@@ -270,7 +276,7 @@ function setSidesEqual(equal) {
 export function useModel() {
   return {
     params, view, session, model, stats, advice, hasCaps, isFree, nozzle, lwMax,
-    applyPreset, resetParams, importParams, snapshotParams, loadDesignParams, applyFit, setNozzle, setProfile, reseedPoints, setBase, setThread,
+    applyPreset, resetParams, importParams, snapshotParams, loadDesignParams, applyFit, setNozzle, setProfile, reseedPoints, smoothProfile, setBase, setThread,
     movePoint, canAddPoint, addPoint, addPointInGap, removePoint, setSidesEqual, mouthDropOf, setMouthDrop, moveMouth,
   };
 }
