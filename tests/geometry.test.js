@@ -175,3 +175,32 @@ describe('two-sided profile', () => {
     expect(applyParams(open(), { H: 150 }).ptsL).toEqual([[0.6, 0.7]]);
   });
 });
+
+describe('transition into the mouth', () => {
+  /* the gourd with a straight neck and smooth segments: its shoulder meets the neck in a short turn */
+  const necked = { ...presetParams(GOURD, DEFAULTS), topL: 30, shoulder: 80, curve: 'smooth' };
+  const deg = (q, z) => (Math.atan(Math.abs(q.slope[Math.round(z / q.dz)])) * 180) / Math.PI;
+
+  it('0 leaves the part as it was', () => {
+    const a = G.buildBody(G.derive(necked), 180, 0.8), b = G.buildBody(G.derive({ ...necked, neckBlend: 0 }), 180, 0.8);
+    expect(Array.from(b.pos)).toEqual(Array.from(a.pos));
+  });
+
+  it('reaches the neck upright through a flare, and leaves the body further down as it was', () => {
+    const plain = G.derive(necked), q = G.derive({ ...necked, neckBlend: 40 });
+    expect(deg(plain, q.zt - 5)).toBeGreaterThan(10);   // without it the wall still leans 5 mm under the neck
+    expect(deg(q, q.zt - 1)).toBeLessThan(5);
+    for (let z = q.zt - 18; z < q.zt - 1; z += 1) expect(deg(q, z + 1)).toBeLessThanOrEqual(deg(q, z) + 0.5);   // the tilt only eases off
+    const i = Math.round((q.zt - 40 - 35) / q.dz);
+    for (let k = 0; k <= i; k++) expect(q.base[k]).toBeCloseTo(plain.base[k], 9);
+    expect(q.base[Math.round(q.zt / q.dz)]).toBeCloseTo(q.Rt, 9);
+  });
+
+  it('stays within the tilt limit and exports as a closed solid', () => {
+    const q = G.derive({ ...necked, shoulder: 45, neckBlend: 60 });
+    for (const s of q.slope) expect(Math.abs(s)).toBeLessThanOrEqual(q.tanS + 1e-9);
+    const info = inspectSTL(toSTL(G.buildBody(q, 180, 0.8), 'body'));
+    expect(info.openEdges).toBe(0);
+    expect(info.volume).toBeGreaterThan(0);
+  });
+});
