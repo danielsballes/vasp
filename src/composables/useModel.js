@@ -101,13 +101,13 @@ const stats = computed(() => {
   const sup = supportAt(over, q.lh, q.lw) * 100;
   const where = t(m.overBody >= m.overBot && m.overBody >= m.overTop ? 'stats.where.body' : m.overBot >= m.overTop ? 'stats.where.bottomThread' : 'stats.where.topThread');
   const r0 = g.rr[0];
-  const wall = q.uneven ? q.shellT : q.lw;   // an uneven mouth is printed with two walls
+  const wall = q.uneven ? q.shellWall : q.lw;   // an uneven mouth is printed with two walls
   const grams = (m.area * wall * PLA) / 1000 + (q.closed ? (Math.PI * r0 * r0 * q.baseT * PLA) / 1000 : 0);
   const Q = QUALITY[params.quality];
   const nT = G.segments(q, Q.seg), nZ = Math.max(3, Math.ceil(q.H / Q.dz) + 1);
   /* the shell adds the inner surface, from the rim down to the floor */
-  const nIn = q.uneven ? Math.max(2, Math.ceil((q.H - (q.closed ? q.baseT : 0)) / Q.dz) + 1) : 0;
-  const tris = !q.uneven ? G.triCount(nT, nZ) : q.closed ? G.triCount(nT, nZ + nIn) : 2 * nT * (nZ + nIn);
+  const innerRings = q.uneven ? Math.max(2, Math.ceil((q.H - (q.closed ? q.baseT : 0)) / Q.dz) + 1) : 0;   // see buildShell
+  const tris = !q.uneven ? G.triCount(nT, nZ) : q.closed ? G.triCount(nT, nZ + innerRings) : 2 * nT * (nZ + innerRings);
   const level = supportLevel(sup);
   return {
     size: t('stats.sizeValue', { h: nf(q.H), d: nf(dia, 1) }),
@@ -184,9 +184,10 @@ function setProfile(v) {
 }
 /* One smoothing pass over both halves of the free profile; repeated clicks keep rounding it. */
 function smoothProfile() {
-  const q = model.value.q, r0 = q.Rb / q.Rmax, r1 = q.Rt / q.Rmax;
-  if (params.pts) params.pts = G.smoothPoints(params.pts, r0, r1);
-  if (params.ptsL) params.ptsL = G.smoothPoints(params.ptsL, r0, r1);
+  const q = model.value.q;
+  const baseRadius = q.Rb / q.Rmax, mouthRadius = q.Rt / q.Rmax;   // relative, like the points
+  if (params.pts) params.pts = G.smoothPoints(params.pts, baseRadius, mouthRadius);
+  if (params.ptsL) params.ptsL = G.smoothPoints(params.ptsL, baseRadius, mouthRadius);
 }
 function reseedPoints() { params.pts = seedPoints(params); params.ptsL = null; view.selected = 3; }
 /* A closed bottom removes the bottom thread along with the neck that only existed for it. */
@@ -246,25 +247,25 @@ function removePoint(i, side = 'R') {
 /* Uneven mouth, set by dragging a mouth handle down in the editor. Only one side can be lower:
    mouthDrop > 0 lowers the left half (the back), < 0 the right half (the front). */
 function mouthDropOf(side) {
-  const d = params.mouthDrop || 0;
-  return side === 'L' ? Math.max(0, d) : Math.max(0, -d);
+  const signedDrop = params.mouthDrop || 0;
+  return side === 'L' ? Math.max(0, signedDrop) : Math.max(0, -signedDrop);
 }
-function setMouthDrop(side, d) {
+function setMouthDrop(side, requestedDrop) {
   const q = model.value.q;
-  d = G.clamp(d, 0, side === 'L' ? q.dropMaxL : q.dropMaxR);
+  const drop = G.clamp(requestedDrop, 0, side === 'L' ? q.dropMaxL : q.dropMaxR);
   /* The side that is not lowered only takes over from a clear pull, so that dragging its mouth
      sideways (to change the diameter) does not undo the other side's drop. */
-  if (mouthDropOf(side) === 0 && d < 1) return;
-  const v = Math.round(d * 10) / 10;
-  params.mouthDrop = v === 0 ? 0 : side === 'L' ? v : -v;
+  if (mouthDropOf(side) === 0 && drop < 1) return;
+  const rounded = Math.round(drop * 10) / 10;
+  params.mouthDrop = rounded === 0 ? 0 : side === 'L' ? rounded : -rounded;
 }
 /* Drag target: the drop that puts this side's mouth handle (the top of the body, q.zt) at height z.
-   Only the stretch above this side's highest point (z0) bends. */
-function moveMouth(side, z) {
+   Only the stretch above this side's highest point (bendFrom) bends. */
+function moveMouth(side, targetHeight) {
   const q = model.value.q;
-  const z0 = side === 'L' ? q.dropFromL : q.dropFromR;
-  if (q.zt - z0 < 1) return;
-  setMouthDrop(side, ((q.zt - z) * (q.H - z0)) / (q.zt - z0));
+  const bendFrom = side === 'L' ? q.dropFromL : q.dropFromR;
+  if (q.zt - bendFrom < 1) return;
+  setMouthDrop(side, ((q.zt - targetHeight) * (q.H - bendFrom)) / (q.zt - bendFrom));
 }
 
 /* Both halves of the free profile alike (ptsL = null) or each with its own points. Splitting

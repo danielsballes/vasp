@@ -19,7 +19,7 @@ export function orcaLines({ p, q, m, caps }, { t, nf }) {
   const lines = q.uneven
     ? [
       printer,
-      [t('orca.noVaseTitle'), t('orca.noVase', { drop: nf(q.drop), where: t(q.dropBack ? 'editor.dropBack' : 'editor.dropFront'), wall: nf(q.shellT, 2) })],
+      [t('orca.noVaseTitle'), t('orca.noVase', { drop: nf(q.drop), where: t(q.dropBack ? 'editor.dropBack' : 'editor.dropFront'), wall: nf(q.shellWall, 2) })],
       [t('orca.wallsTitle'), t('orca.walls', { lw: nf(q.lw, 2) })],
       base,
       [t('orca.seamTitle'), t('orca.seam')],
@@ -39,7 +39,7 @@ export function readme(ctx, files, paramsFile, tr) {
   L.push(t('readme.heading'), '');
   L.push(t('readme.part', { h: nf(q.H), d: nf(2 * m.rMax, 1) }));
   L.push(t('readme.units'));
-  L.push(q.uneven ? t('readme.contourUneven', { drop: nf(q.drop), where: t(q.dropBack ? 'editor.dropBack' : 'editor.dropFront'), wall: nf(q.shellT, 2) }) : t('readme.contour'), '');
+  L.push(q.uneven ? t('readme.contourUneven', { drop: nf(q.drop), where: t(q.dropBack ? 'editor.dropBack' : 'editor.dropFront'), wall: nf(q.shellWall, 2) }) : t('readme.contour'), '');
   L.push(t('readme.files'));
   for (const f of files) L.push('  - ' + f);
   L.push('', t('readme.settings'));

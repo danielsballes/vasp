@@ -30,19 +30,20 @@ const geo = computed(() => {
   const sc = Math.min((W - 2 * PAD) / (2 * q.Rmax), (H - 2 * PAD) / q.H);
   const cx = W / 2, y0 = H - PAD - (H - 2 * PAD - q.H * sc) / 2;
   const X = (r) => cx + r * sc, Y = (z) => y0 - z * sc;
-  const YR = (z) => Y(dropZ(q, z, 0)), YL = (z) => Y(dropZ(q, z, Math.PI));   // each half as low as its mouth
+  /* screen y of a height on each half, as low as that half's mouth really is */
+  const yFront = (z) => Y(dropZ(q, z, 0)), yBack = (z) => Y(dropZ(q, z, Math.PI));
   const n = pR.length;
   const mouth = (side) => {
     const drop = mouthDropOf(side) && q.uneven ? q.drop : 0;
     return {
-      x: X((side === 'L' ? -1 : 1) * q.Rt), y: (side === 'L' ? YL : YR)(q.zt), end: true, side, i: sidePts(side).length + 1,
+      x: X((side === 'L' ? -1 : 1) * q.Rt), y: (side === 'L' ? yBack : yFront)(q.zt), end: true, side, i: sidePts(side).length + 1,
       label: t('editor.topLabel', { d: nf(2 * q.Rt) }) + ` (${t(side === 'L' ? 'editor.sideLeft' : 'editor.sideRight')})`
         + (drop ? ' · ' + t('editor.dropLabel', { mm: nf(drop) }) : ''),
     };
   };
   const sideName = (side) => (two ? t(side === 'L' ? 'editor.sideLeft' : 'editor.sideRight') : '');
   const point = (side, sign) => (p, i) => ({
-    x: X(sign * p[1] * q.Rmax), y: (side === 'L' ? YL : YR)(q.zb + p[0] * q.hb), end: false, side, i: i + 1,
+    x: X(sign * p[1] * q.Rmax), y: (side === 'L' ? yBack : yFront)(q.zb + p[0] * q.hb), end: false, side, i: i + 1,
     label: t('editor.pointLabel', { i: i + 1, u: nf(p[0] * 100), d: nf(2 * p[1] * q.Rmax) }) + (two ? ` (${sideName(side)})` : ''),
   });
   const handles = [
@@ -57,19 +58,19 @@ const geo = computed(() => {
   const right = [], left = [], want = [], wantLeft = [];
   let clipped = 0;
   for (let i = 0; i <= q.M; i += stepI) {
-    const y = YR(i * q.dz).toFixed(1), yL = YL(i * q.dz).toFixed(1);
+    const y = yFront(i * q.dz).toFixed(1), yLeft = yBack(i * q.dz).toFixed(1);
     right.push(`${X(q.base[i]).toFixed(1)},${y}`);
-    left.push(`${X(-baseL[i]).toFixed(1)},${yL}`);
+    left.push(`${X(-baseL[i]).toFixed(1)},${yLeft}`);
     want.push(`${X(q.want[i]).toFixed(1)},${y}`);
-    if (two) wantLeft.push(`${X(-wantL[i]).toFixed(1)},${yL}`);
+    if (two) wantLeft.push(`${X(-wantL[i]).toFixed(1)},${yLeft}`);
     clipped = Math.max(clipped, q.want[i] - q.base[i], wantL[i] - baseL[i]);
   }
   return {
     cx, yTop: Y(q.H) - 6, yBot: Y(0) + 6, handles, n, nL: pL.length, clipped, sideName,
     shape: `M${right.join('L')}L${left.reverse().join('L')}Z`,
     want: `M${want.join('L')}` + (two ? `M${wantLeft.join('L')}` : ''),
-    toZ: (y) => (y0 - y) / sc,
-    /* undoes YR / YL (left = true): above the bottom neck the lowered half is squeezed */
+    toHeight: (y) => (y0 - y) / sc,
+    /* undoes yFront / yBack (left = true): above its highest point the lowered half is squeezed */
     toU: (y, left) => (undropZ(q, (y0 - y) / sc, left ? Math.PI : 0) - q.zb) / q.hb,
     toR: (x) => Math.abs(x - cx) / sc,
     sideAt: (x) => (two && x < cx ? 'L' : 'R'),
@@ -125,7 +126,7 @@ function onMove(e) {
   if (drag === null) return;
   const [x, y] = at(e), h = geo.value.handles[drag];
   if (!h) return;
-  if (h.end && h.i > 0) moveMouth(h.side, geo.value.toZ(y));
+  if (h.end && h.i > 0) moveMouth(h.side, geo.value.toHeight(y));
   movePoint(h.i, geo.value.toU(y, h.side === 'L'), geo.value.toR(x), h.side);
 }
 function onUp() { drag = null; }
