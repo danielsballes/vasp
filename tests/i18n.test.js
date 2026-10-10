@@ -19,7 +19,7 @@ function flatten(node, prefix = '', out = {}) {
   }
   return out;
 }
-const placeholders = (text) => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+const placeholders = (text) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
 
 function sourceFiles(dir, out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -40,7 +40,7 @@ function translator(messages) {
       return String(named[name]);
     });
   };
-  return { t, nf: (value, digits = 0) => Number(value).toFixed(digits) };
+  return { t, formatNumber: (value, digits = 0) => Number(value).toFixed(digits) };
 }
 
 const flat = Object.fromEntries(Object.entries(LOCALES).map(([code, messages]) => [code, flatten(messages)]));
@@ -75,9 +75,9 @@ describe('message files', () => {
     for (const file of sourceFiles(SRC)) {
       const code = readFileSync(file, 'utf8');
       /* keys passed straight to t() or setStatus(), including prefixes such as 'presets.' + id */
-      for (const m of code.matchAll(/\b(?:t|setStatus)\(\s*'([\w.]+)'/g)) used.add(m[1]);
+      for (const match of code.matchAll(/\b(?:t|setStatus)\(\s*'([\w.]+)'/g)) used.add(match[1]);
       /* keys kept in variables, tables or conditionals: any quoted dotted name under a message group */
-      for (const m of code.matchAll(/'((?:[a-zA-Z]\w*\.)+\w+)'/g)) if (topLevel.has(m[1].split('.')[0])) used.add(m[1]);
+      for (const match of code.matchAll(/'((?:[a-zA-Z]\w*\.)+\w+)'/g)) if (topLevel.has(match[1].split('.')[0])) used.add(match[1]);
     }
     expect(used.size).toBeGreaterThan(100);
     for (const key of used) {
@@ -102,24 +102,24 @@ describe('printing notes', () => {
     'closed vase without threads': { ...DEFAULTS, base: 'closed', botThread: false, topThread: false },
   };
   for (const [code, messages] of Object.entries(LOCALES)) {
-    for (const [name, p] of Object.entries(variants)) {
+    for (const [name, params] of Object.entries(variants)) {
       it(`"${code}": ${name}`, () => {
-        const q = G.derive(p);
-        const m = G.measure(G.buildBody(q, 96, 1), false);
+        const shape = G.derive(params);
+        const measures = G.measure(G.buildBody(shape, 96, 1), false);
         const caps = {};
         for (const which of ['bottom', 'top']) {
-          const spec = G.capSpec(q, which);
+          const spec = G.capSpec(shape, which);
           if (spec) caps[which] = { spec };
         }
         const tr = translator(messages);
-        const ctx = { p, q, m, caps };
-        const lines = orcaLines(ctx, tr);
+        const context = { params, shape, measures, caps };
+        const lines = orcaLines(context, tr);
         expect(lines.length).toBeGreaterThanOrEqual(4);
         for (const [title, text] of lines) {
           expect(title).not.toMatch(/[{}]/);
           expect(text).not.toMatch(/[{}]|undefined|NaN/);
         }
-        const text = readme(ctx, ['body.stl'], 'parameters.json', tr);
+        const text = readme(context, ['body.stl'], 'parameters.json', tr);
         expect(text).toContain('parameters.json');
         expect(text).not.toMatch(/[{}]|undefined|NaN/);
       });

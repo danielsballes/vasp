@@ -38,7 +38,7 @@ src/
     notes.js       Suggested Orca Slicer settings and the exported notes file
     format.js      Number and date formatting
   i18n/
-    index.js       vue-i18n setup, language list, current language, t / nf / df helpers
+    index.js       vue-i18n setup, language list, current language, t / formatNumber / formatDate
     locales/       One message file per language (es.js, en.js)
   composables/
     useModel.js    Shared state: parameters, view options and the computed model
@@ -69,7 +69,7 @@ tests/             Unit tests: geometry, saved designs and message files
 - **Download:** in development or on your own server the ZIP downloads directly. Inside a Claude
   artifact the page uses the viewer's save function instead.
 - **Languages:** [vue-i18n](https://vue-i18n.intlify.dev/) in Composition API mode. Components call
-  `useI18n()`; code outside components imports `t`, `nf` (numbers) and `df` (dates) from
+  `useI18n()`; code outside components imports `t`, `formatNumber` and `formatDate` from
   `src/i18n/index.js`. The first visit uses the browser language when the app speaks it and Spanish
   otherwise; the choice made in the header selector is remembered. `src/core` never imports
   vue-i18n: functions that produce text receive the translator as an argument.

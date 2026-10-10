@@ -35,14 +35,17 @@ export function supportLevel(pct) {
    width: first half a line of support using a stock Orca profile height, then 40 %, and finally the
    minimum layer height. */
 export function suggestPrint(deg, nozzle) {
-  const nz = nozzleOf(nozzle), t = Math.tan((deg * Math.PI) / 180), lwMax = lwMaxOf(nozzle);
-  const heights = [...nz.profiles].sort((a, b) => b - a).filter((v) => v > nz.lhMin);
-  const tryAll = (list, share) => {
+  const profile = nozzleOf(nozzle), tiltTan = Math.tan((deg * Math.PI) / 180), lwMax = lwMaxOf(nozzle);
+  const heights = [...profile.profiles].sort((a, b) => b - a).filter((height) => height > profile.lhMin);
+  /* First layer height in the list whose line, rounded up to 0.02 mm, rests `share` on the layer below. */
+  const firstThatFits = (list, share) => {
     for (const lh of list) {
-      const lw = Math.max(nz.lwDef, Math.ceil((lh * t) / (1 - share) / 0.02 - 1e-6) * 0.02);
+      const lw = Math.max(profile.lwDef, Math.ceil((lh * tiltTan) / (1 - share) / 0.02 - 1e-6) * 0.02);
       if (lw <= lwMax + 1e-9) return { lh, lw: +lw.toFixed(2), ok: true };
     }
     return null;
   };
-  return tryAll(heights, 0.5) || tryAll(heights, 0.4) || tryAll([nz.lhMin], 0.5) || tryAll([nz.lhMin], 0.4) || { lh: nz.lhMin, lw: lwMax, ok: false };
+  return firstThatFits(heights, 0.5) || firstThatFits(heights, 0.4)
+    || firstThatFits([profile.lhMin], 0.5) || firstThatFits([profile.lhMin], 0.4)
+    || { lh: profile.lhMin, lw: lwMax, ok: false };
 }

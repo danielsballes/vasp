@@ -1,7 +1,7 @@
 import { createI18n } from 'vue-i18n';
 import es from './locales/es.js';
 import en from './locales/en.js';
-import { formatDate, formatNumber } from '../core/format.js';
+import { formatDateIn, formatNumberIn } from '../core/format.js';
 
 /* Languages of the interface. `tag` is the locale used to format numbers and dates.
    To add a language: write its message file under locales/, import it here and add it to both
@@ -13,7 +13,7 @@ export const LOCALES = [
 export const DEFAULT_LOCALE = 'es';
 
 const STORE = 'vasp-locale';
-const known = (code) => LOCALES.some((l) => l.code === code);
+const known = (code) => LOCALES.some((language) => language.code === code);
 
 /* The language chosen earlier, else the first browser language the app speaks, else Spanish. */
 function initialLocale() {
@@ -39,12 +39,12 @@ export const i18n = createI18n({
 /* Current language as a ref. Reading it inside a computed or a template makes that code re-run
    when the language changes. */
 export const locale = i18n.global.locale;
-const tag = () => (LOCALES.find((l) => l.code === locale.value) || LOCALES[0]).tag;
+const tag = () => (LOCALES.find((language) => language.code === locale.value) || LOCALES[0]).tag;
 
 /* Translation and formatting for code outside components. Components use useI18n(). */
 export const t = (key, named) => i18n.global.t(key, named || {});
-export const nf = (value, digits = 0) => formatNumber(value, digits, tag());
-export const df = (ms) => formatDate(ms, tag());
+export const formatNumber = (value, digits = 0) => formatNumberIn(value, digits, tag());
+export const formatDate = (ms) => formatDateIn(ms, tag());
 
 export function setLocale(code) {
   if (!known(code)) return;

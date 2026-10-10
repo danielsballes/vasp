@@ -1,51 +1,52 @@
 /* Text that describes how to print a model: the suggested Orca Slicer settings shown in the panel and
    the notes file that ships next to the STL files.
 
-   This module stays free of Vue: the caller injects `tr = { t, nf }`, where `t(key, named)`
-   translates a message and `nf(value, digits)` formats a number for the current language.
-   ctx = { p, q, m, caps }. */
+   This module stays free of Vue: the caller injects `translator = { t, formatNumber }`, where
+   `t(key, named)` translates a message and `formatNumber(value, digits)` formats a number for the
+   current language.
+   context = { params, shape, measures, caps }. */
 
 /* Suggested Orca Slicer settings as [title, text] pairs. */
-export function orcaLines({ p, q, m, caps }, { t, nf }) {
+export function orcaLines({ params, shape, measures, caps }, { t, formatNumber }) {
   const anyCap = !!(caps.bottom || caps.top);
-  const threadOver = Math.max(m.overBot, m.overTop);
-  const layers = Math.max(1, Math.round(q.baseT / q.lh));
+  const threadOver = Math.max(measures.overBottom, measures.overTop);
+  const layers = Math.max(1, Math.round(shape.baseThickness / shape.layerHeight));
   const lines = [
-    [t('orca.printerTitle'), t('orca.printer', { nozzle: nf(p.nozzle, 1), lh: nf(q.lh, 2), lw: nf(q.lw, 2) })],
+    [t('orca.printerTitle'), t('orca.printer', { nozzle: formatNumber(params.nozzle, 1), lh: formatNumber(shape.layerHeight, 2), lw: formatNumber(shape.lineWidth, 2) })],
     [t('orca.vaseTitle'), t('orca.vase')],
-    [t('orca.baseTitle'), q.closed
-      ? t('orca.baseClosed', { layers, floor: nf(q.baseT, 1) })
-      : t(q.thB ? 'orca.baseThread' : 'orca.baseOpen')],
+    [t('orca.baseTitle'), shape.closedBase
+      ? t('orca.baseClosed', { layers, floor: formatNumber(shape.baseThickness, 1) })
+      : t(shape.bottomThread ? 'orca.baseThread' : 'orca.baseOpen')],
     [t('orca.smoothTitle'), t('orca.smooth')],
   ];
-  if (!q.closed) lines.push([t('orca.brimTitle'), t('orca.brim')]);
-  if (anyCap) lines.push([t('orca.capsTitle'), t('orca.caps', { over: nf(threadOver) })]);
+  if (!shape.closedBase) lines.push([t('orca.brimTitle'), t('orca.brim')]);
+  if (anyCap) lines.push([t('orca.capsTitle'), t('orca.caps', { over: formatNumber(threadOver) })]);
   return lines;
 }
 
 /* Body of the notes file. `files` lists the names packed in the ZIP and `paramsFile` is the one
    that restores the design. */
-export function readme(ctx, files, paramsFile, tr) {
-  const { q, m, caps } = ctx;
-  const { t, nf } = tr;
-  const L = [];
-  L.push(t('readme.heading'), '');
-  L.push(t('readme.part', { h: nf(q.H), d: nf(2 * m.rMax, 1) }));
-  L.push(t('readme.units'));
-  L.push(t('readme.contour'), '');
-  L.push(t('readme.files'));
-  for (const f of files) L.push('  - ' + f);
-  L.push('', t('readme.settings'));
-  for (const [title, text] of orcaLines(ctx, tr)) L.push(`  - ${title}: ${text}`);
-  if (q.thB || q.thT) {
-    L.push('', t('readme.thread', { pitch: nf(q.pitch, 1), c: nf(q.c, 2) }));
-    L.push(t('readme.capsNormal'));
-    L.push(t('readme.capsFlip'));
+export function readme(context, files, paramsFile, translator) {
+  const { shape, measures, caps } = context;
+  const { t, formatNumber } = translator;
+  const lines = [];
+  lines.push(t('readme.heading'), '');
+  lines.push(t('readme.part', { h: formatNumber(shape.height), d: formatNumber(2 * measures.maxRadius, 1) }));
+  lines.push(t('readme.units'));
+  lines.push(t('readme.contour'), '');
+  lines.push(t('readme.files'));
+  for (const file of files) lines.push('  - ' + file);
+  lines.push('', t('readme.settings'));
+  for (const [title, text] of orcaLines(context, translator)) lines.push(`  - ${title}: ${text}`);
+  if (shape.bottomThread || shape.topThread) {
+    lines.push('', t('readme.thread', { pitch: formatNumber(shape.pitch, 1), c: formatNumber(shape.clearance, 2) }));
+    lines.push(t('readme.capsNormal'));
+    lines.push(t('readme.capsFlip'));
     for (const [which, key] of [['bottom', 'readme.holeBottom'], ['top', 'readme.holeTop']]) {
-      const c = caps[which];
-      if (c && c.spec.hole > 0) L.push(t(key, { d: nf(2 * c.spec.hole, 1) }));
+      const cap = caps[which];
+      if (cap && cap.spec.hole > 0) lines.push(t(key, { d: formatNumber(2 * cap.spec.hole, 1) }));
     }
   }
-  L.push('', t('readme.resume', { file: paramsFile }));
-  return L.join('\r\n');
+  lines.push('', t('readme.resume', { file: paramsFile }));
+  return lines.join('\r\n');
 }

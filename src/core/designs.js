@@ -16,7 +16,7 @@ const byRecent = (a, b) => b.savedAt - a.savedAt;
 
 export function findByName(list, name) {
   const wanted = cleanName(name);
-  return list.find((d) => sameName(d.name, wanted)) || null;
+  return list.find((design) => sameName(design.name, wanted)) || null;
 }
 
 /* Saves `params` under `name`. A design with the same name (ignoring case) is replaced and keeps
@@ -26,11 +26,11 @@ export function upsertDesign(list, name, params, now = Date.now()) {
   if (!clean) return null;
   const old = findByName(list, clean);
   const design = { id: old ? old.id : newId(now), name: clean, savedAt: now, params: cloneParams(params) };
-  const rest = list.filter((d) => d !== old);
+  const rest = list.filter((design) => design !== old);
   return { list: [design, ...rest].sort(byRecent), design, replaced: !!old };
 }
 
-export const removeDesign = (list, id) => list.filter((d) => d.id !== id);
+export const removeDesign = (list, id) => list.filter((design) => design.id !== id);
 
 /* What gets written to storage and to a backup file. */
 export function serializeLibrary(list) {
@@ -38,7 +38,7 @@ export function serializeLibrary(list) {
     app: 'Vasp',
     kind: DESIGNS_KIND,
     version: DESIGNS_VERSION,
-    designs: list.map((d) => ({ id: d.id, name: d.name, savedAt: new Date(d.savedAt).toISOString(), params: d.params })),
+    designs: list.map((design) => ({ id: design.id, name: design.name, savedAt: new Date(design.savedAt).toISOString(), params: design.params })),
   };
 }
 
@@ -69,9 +69,9 @@ export function mergeLibraries(current, incoming) {
   for (const design of incoming) {
     const old = findByName(list, design.name);
     if (old && old.savedAt >= design.savedAt) continue;
-    const taken = list.some((d) => d !== old && d.id === design.id);
+    const taken = list.some((other) => other !== old && other.id === design.id);
     const id = old ? old.id : taken ? newId(design.savedAt) : design.id;
-    list = [...list.filter((d) => d !== old), { ...design, id }];
+    list = [...list.filter((other) => other !== old), { ...design, id }];
     changed++;
   }
   return { list: list.sort(byRecent), changed };
