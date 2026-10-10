@@ -289,3 +289,82 @@ describe('smoothing the free profile', () => {
     out.forEach((p, i) => expect(Math.abs(p[1] - pts[i][1])).toBeLessThan(0.06));
   });
 });
+
+describe('plain band above the base', () => {
+  const spread = (q, z) => {
+    const row = G.bodyRow(q, z);
+    const rs = Array.from({ length: 720 }, (_, k) => G.bodyR(q, row, (k * Math.PI) / 360));
+    return Math.max(...rs) - Math.min(...rs);
+  };
+  const ringAt = (q, z) => G.bodyRow(q, z).add;
+
+  it('no band leaves the part as it was', () => {
+    const a = G.buildBody(G.derive(DEFAULTS), 180, 0.8), b = G.buildBody(G.derive({ ...DEFAULTS, patternStart: 0 }), 180, 0.8);
+    expect(Array.from(b.pos)).toEqual(Array.from(a.pos));
+  });
+
+  it('the ribs start above the base of the gourd and keep their relief higher up', () => {
+    const p = presetParams(GOURD, DEFAULTS), q = G.derive({ ...p, patternStart: 8 });
+    expect(spread(G.derive(p), 2)).toBeGreaterThan(0.2);   // without the band they reach the floor
+    expect(spread(q, 2)).toBeLessThan(1e-9);
+    expect(spread(q, 8)).toBeLessThan(1e-9);
+    expect(spread(q, q.H / 2)).toBeGreaterThan(1);
+  });
+
+  it('the rings are spread above the band, and the lantern stays a closed solid within the tilt limit', () => {
+    const q = G.derive({ ...DEFAULTS, patternStart: 40 });
+    expect(q.zq).toBe(40);
+    for (let z = q.zb; z < q.zq; z += 0.25) {   // below zb the threaded neck has its own groove
+      expect(ringAt(q, z)).toBe(0);
+      expect(spread(q, z)).toBeLessThan(1e-9);
+    }
+    const low = q.zq + (0.5 * (q.zr - q.zq)) / q.rings;   // centre of the lowest ring
+    expect(Math.abs(ringAt(q, low))).toBeGreaterThan(0.1);
+    const g = G.buildBody(q, 180, 0.8), info = inspectSTL(toSTL(g, 'body'));
+    expect(info.openEdges).toBe(0);
+    expect(G.measure(G.buildBody(q, 192, 0.5, 6), false).overBody).toBeLessThanOrEqual(q.limit + 5.5);
+  });
+
+  it('both bands together leave room for the pattern', () => {
+    const q = G.derive({ ...DEFAULTS, patternStart: 500, patternStop: 30 });
+    expect(q.patStart).toBeLessThanOrEqual(q.zr - 5);
+    const g = G.buildBody(q, 180, 0.8), info = inspectSTL(toSTL(g, 'body'));
+    expect(info.openEdges).toBe(0);
+    expect(info.degenerate).toBe(0);
+  });
+});
+
+describe('plain band under the mouth', () => {
+  const spread = (q, z) => {
+    const row = G.bodyRow(q, z);
+    const rs = Array.from({ length: 720 }, (_, k) => G.bodyR(q, row, (k * Math.PI) / 360));
+    return Math.max(...rs) - Math.min(...rs);
+  };
+  const ringAt = (q, z) => G.bodyRow(q, z).add;
+
+  it('no band leaves the part as it was', () => {
+    const a = G.buildBody(G.derive(DEFAULTS), 180, 0.8), b = G.buildBody(G.derive({ ...DEFAULTS, patternStop: 0 }), 180, 0.8);
+    expect(Array.from(b.pos)).toEqual(Array.from(a.pos));
+  });
+
+  it('the ribs stop below the rim of the gourd and keep their relief lower down', () => {
+    const p = presetParams(GOURD, DEFAULTS), q = G.derive({ ...p, patternStop: 8 });
+    expect(spread(G.derive(p), q.H - 2)).toBeGreaterThan(0.2);   // without the band they reach the rim
+    expect(spread(q, q.H - 2)).toBeLessThan(1e-9);
+    expect(spread(q, q.H - 8)).toBeLessThan(1e-9);
+    expect(spread(q, q.H / 2)).toBeGreaterThan(1);
+  });
+
+  it('the rings are spread below the band, and the lantern stays a closed solid within the tilt limit', () => {
+    const q = G.derive({ ...DEFAULTS, patternStop: 40 });
+    for (let z = q.zp; z < q.zt; z += 0.25) {   // above zt the threaded neck has its own groove
+      expect(ringAt(q, z)).toBe(0);
+      expect(spread(q, z)).toBeLessThan(1e-9);
+    }
+    const top = q.zb + ((q.rings - 0.5) * (q.zr - q.zb)) / q.rings;   // centre of the highest ring
+    expect(Math.abs(ringAt(q, top))).toBeGreaterThan(0.1);
+    const g = G.buildBody(q, 180, 0.8), info = inspectSTL(toSTL(g, 'body'));
+    expect(info.openEdges).toBe(0);
+    expect(G.measure(G.buildBody(q, 192, 0.5, 6), false).overBody).toBeLessThanOrEqual(q.limit + 5.5);
+  });
+});

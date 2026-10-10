@@ -99,6 +99,8 @@ export default {
     designs: 'saved: {n}',
   },
   fields: {
+    patternStop: 'Plain band under the mouth',
+    patternStart: 'Plain band above the base',
     withUnit: '{label} in {unit}',
     nozzle: 'Nozzle',
     nozzleSize: '{d} mm',
@@ -142,6 +144,8 @@ export default {
     base: { open: 'Open', closed: 'Closed' },
   },
   hints: {
+    patternStop: 'Rings and ribs stop this far below the rim of the mouth. At 0 they run all the way up.',
+    patternStart: 'Rings and ribs start this far above the base. At 0 they start at the bottom.',
     lh: 'With a {nozzle} mm nozzle the Qidi Q2 takes {min} to {max} mm. Orca profiles: {profiles}.',
     lw: 'The Orca profile for this nozzle uses {def} mm, and its wiki advises against going over 150 % of the nozzle ({max} mm). Use the same value here as in the slicer.',
     squareness: '2 gives a round profile; high values leave the sides straight.',

@@ -191,6 +191,7 @@ function onReset() { resetParams(); setStatus('exporting.resetDone'); }
       <SwitchField id="botThread" :label="t('fields.thread')" :disabled="q.closed" :model-value="params.botThread" @update:model-value="setThread('bottom', $event)" />
       <RangeField id="botD" :label="t('fields.baseDiameter')" unit="mm" :min="6" :max="200" :step="1" v-model="params.botD" />
       <RangeField id="botL" :label="t('fields.neckLength')" unit="mm" :min="0" :max="40" :step="1" v-model="params.botL" />
+      <RangeField id="patternStart" :label="t('fields.patternStart')" unit="mm" :min="0" :max="60" :step="0.5" :hint="t('hints.patternStart')" v-model="params.patternStart" />
       <p class="form-text mb-0" :class="{ 'text-warn': noteBot.warn }" id="note-bot">{{ noteBot.text }}</p>
     </PanelSection>
 
@@ -198,6 +199,7 @@ function onReset() { resetParams(); setStatus('exporting.resetDone'); }
       <SwitchField id="topThread" :label="t('fields.thread')" :disabled="q.uneven" :model-value="params.topThread" @update:model-value="setThread('top', $event)" />
       <RangeField id="topD" :label="t('fields.mouthDiameter')" unit="mm" :min="6" :max="200" :step="1" v-model="params.topD" />
       <RangeField id="topL" :label="t('fields.neckLength')" unit="mm" :min="0" :max="40" :step="1" v-model="params.topL" />
+      <RangeField id="patternStop" :label="t('fields.patternStop')" unit="mm" :min="0" :max="60" :step="0.5" :hint="t('hints.patternStop')" v-model="params.patternStop" />
       <p class="form-text mb-0" :class="{ 'text-warn': noteTop.warn }" id="note-top">{{ noteTop.text }}</p>
     </PanelSection>
 

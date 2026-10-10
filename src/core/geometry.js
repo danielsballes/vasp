@@ -144,9 +144,18 @@ export function derive(p) {
   q.rlB = Math.min(0.75 * q.pitch, Lb / 3);
   q.rlT = Math.min(0.75 * q.pitch, Lt / 3);
 
+  /* Patterns (rings and ribs) stop `patStop` mm below the rim and start `patStart` mm above the
+     floor, leaving plain bands at the mouth and at the base. The rings are spread between those
+     heights (zq to zr); the ribs fade in over `patFadeB` mm above the base band and out over
+     `patFade` mm under the mouth band. */
+  q.patStop = clamp(+p.patternStop || 0, 0, Math.max(0, q.H - q.zb - 5));
+  q.zp = q.H - q.patStop;
+  q.zr = Math.min(q.zt, q.zp);
+  q.patStart = clamp(+p.patternStart || 0, 0, Math.max(0, q.zr - 5));
+  q.zq = Math.max(q.zb, q.patStart);
   q.rings = Math.max(0, Math.round(+p.rings || 0));
   q.ringA = +p.ringRelief || 0;
-  q.ringW = q.rings > 0 ? Math.min(Math.max(0.5, +p.ringWidth || 1), q.hb / q.rings) : 0;
+  q.ringW = q.rings > 0 ? Math.min(Math.max(0.5, +p.ringWidth || 1), (q.zr - q.zq) / q.rings) : 0;
   q.ribs = clamp(Math.round(+p.ribs || 0), 0, 160);
   q.ribCrest = p.ribShape === 'crest';
   q.ribProp = !!p.ribProp;
@@ -154,6 +163,8 @@ export function derive(p) {
   q.ribWf = clamp((+p.ribWidth || 30) / 100, 0.05, 1);
   q.twist = q.ribs > 0 && q.ribA !== 0 ? rad(+p.twist || 0) : 0;
   q.ramp = clamp(q.hb * 0.18, 4, 25);
+  q.patFade = q.patStop > 0 ? clamp(3 * Math.abs(q.ribA), 3, q.ramp) : 0;   // keeps the fade under ~27°
+  q.patFadeB = q.patStart > 0 ? clamp(3 * Math.abs(q.ribA), 3, q.ramp) : 0;
 
   /* Base profile: a superelliptic barrel or a free curve through points, limited to the maximum
      wall tilt starting from the radius of each mouth. With `ptsL`, the left side (θ = π) gets its
@@ -171,20 +182,24 @@ export function derive(p) {
      already has (and to the headroom the ribs use), it stays under the limit. */
   q.ringAmp = new Float64Array(q.rings);
   if (q.rings > 0) {
-    const sp = q.hb / q.rings, w = q.ringW;
+    const sp = (q.zr - q.zq) / q.rings, w = q.ringW;
     const hasRibs = q.ribA !== 0;
     const twistUse = hasRibs ? (Math.abs(q.ribA) * 0.5 * q.ribs * Math.abs(q.twist)) / (q.ribWf * q.hb) : 0;
     const rampUse = hasRibs ? (Math.abs(q.ribA) * 1.5) / q.ramp : 0;
+    const fadeUse = hasRibs && q.patFade ? (Math.abs(q.ribA) * 1.5) / q.patFade : 0;
+    const fadeUseB = hasRibs && q.patFadeB ? (Math.abs(q.ribA) * 1.5) / q.patFadeB : 0;
     for (let k = 0; k < q.rings; k++) {
       let A = Math.abs(q.ringA);
       if (q.protect) {
-        const zr = q.zb + (k + 0.5) * sp;
+        const zr = q.zq + (k + 0.5) * sp;
         const i0 = Math.max(0, Math.floor((zr - w / 2) / dz)), i1 = Math.min(M, Math.ceil((zr + w / 2) / dz));
         let used = 0;
         for (let i = i0; i <= i1; i++) {
           const z = i * dz;
           let u = Math.max(Math.abs(slope[i]), Math.abs(left.slope[i])) + twistUse;
           if ((q.thB && z < q.zb + q.ramp) || (q.thT && z > q.zt - q.ramp)) u += rampUse;
+          if (q.patFade && z > q.zp - q.patFade) u += fadeUse;
+          if (q.patFadeB && z < q.patStart + q.patFadeB) u += fadeUseB;
           if (u > used) used = u;
         }
         A = Math.min(A, (Math.max(0, q.tanMax - used) * w) / Math.PI);
@@ -246,9 +261,9 @@ export function bodyRow(q, z) {
   row.base = q.base[i] * (1 - f) + q.base[i + 1] * f;
   row.baseL = q.asym ? q.baseL[i] * (1 - f) + q.baseL[i + 1] * f : row.base;
   if (z >= q.zb && z <= q.zt) {
-    if (q.rings > 0 && q.ringA !== 0) {
-      const sp = q.hb / q.rings;
-      const u = (z - q.zb) / sp;
+    if (q.rings > 0 && q.ringA !== 0 && z >= q.zq && z <= q.zr) {
+      const sp = (q.zr - q.zq) / q.rings;
+      const u = (z - q.zq) / sp;
       const d = (u - Math.floor(u) - 0.5) * sp;
       const w = q.ringW;
       if (Math.abs(d) < w / 2) row.add = q.ringAmp[Math.min(q.rings - 1, Math.floor(u))] * 0.5 * (1 + Math.cos((TAU * d) / w));
@@ -258,11 +273,14 @@ export function bodyRow(q, z) {
     row.tw = z <= q.zb ? 0 : q.twist;
   }
   /* Ribs also run along plain necks; they only fade out towards a threaded neck, which has to
-     stay round. */
+     stay round, under the plain band at the mouth (patStop) and above the one at the base
+     (patStart). */
   if (q.ribA !== 0) {
     const fb = q.thB ? sstep(q.zb, q.zb + q.ramp, z) : 1;
     const ft = q.thT ? sstep(q.zt, q.zt - q.ramp, z) : 1;
-    row.ribAmp = q.ribA * fb * ft * (q.ribProp ? row.base / q.Rmax : 1);
+    const fp = q.patFade ? sstep(q.zp, q.zp - q.patFade, z) : 1;
+    const fs = q.patFadeB ? sstep(q.patStart, q.patStart + q.patFadeB, z) : 1;
+    row.ribAmp = q.ribA * fb * ft * fp * fs * (q.ribProp ? row.base / q.Rmax : 1);
   }
   if (q.thB && z <= q.Lb) {
     row.th = 1; row.dep = q.depB;

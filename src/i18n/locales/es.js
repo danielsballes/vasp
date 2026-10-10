@@ -99,6 +99,8 @@ export default {
     designs: 'guardados: {n}',
   },
   fields: {
+    patternStop: 'Borde liso bajo la boca',
+    patternStart: 'Borde liso sobre la base',
     withUnit: '{label} en {unit}',
     nozzle: 'Boquilla',
     nozzleSize: '{d} mm',
@@ -142,6 +144,8 @@ export default {
     base: { open: 'Abierto', closed: 'Cerrado' },
   },
   hints: {
+    patternStop: 'Los anillos y los nervios terminan esta distancia antes del borde de la boca. En 0 llegan hasta arriba.',
+    patternStart: 'Los anillos y los nervios empiezan esta distancia por encima de la base. En 0 arrancan desde abajo.',
     lh: 'Con boquilla de {nozzle} mm la Qidi Q2 admite de {min} a {max} mm. Perfiles de Orca: {profiles}.',
     lw: 'El perfil de Orca para esta boquilla usa {def} mm, y su wiki desaconseja pasar del 150 % de la boquilla ({max} mm). Use aquí el mismo valor que en el slicer.',
     squareness: '2 da un perfil redondo; los valores altos dejan los costados rectos.',
