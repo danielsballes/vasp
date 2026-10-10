@@ -10,15 +10,22 @@ export function orcaLines({ p, q, m, caps }, { t, nf }) {
   const anyCap = !!(caps.bottom || caps.top);
   const threadOver = Math.max(m.overBot, m.overTop);
   const layers = Math.max(1, Math.round(q.baseT / q.lh));
-  const lines = [
-    [t('orca.printerTitle'), t('orca.printer', { nozzle: nf(p.nozzle, 1), lh: nf(q.lh, 2), lw: nf(q.lw, 2) })],
-    [t('orca.vaseTitle'), t('orca.vase')],
-    [t('orca.baseTitle'), q.closed
-      ? t('orca.baseClosed', { layers, floor: nf(q.baseT, 1) })
-      : t(q.thB ? 'orca.baseThread' : 'orca.baseOpen')],
-    [t('orca.smoothTitle'), t('orca.smooth')],
-  ];
-  if (!q.closed) lines.push([t('orca.brimTitle'), t('orca.brim')]);
+  const printer = [t('orca.printerTitle'), t('orca.printer', { nozzle: nf(p.nozzle, 1), lh: nf(q.lh, 2), lw: nf(q.lw, 2) })];
+  const base = [t('orca.baseTitle'), q.closed
+    ? t(q.uneven ? 'orca.baseClosedWalls' : 'orca.baseClosed', { layers, floor: nf(q.baseT, 1) })
+    : t(q.thB ? 'orca.baseThread' : 'orca.baseOpen')];
+  /* An uneven mouth cannot go in vase mode: the top layers are open arcs. The body is a shell
+     with a two-line wall, printed with normal walls. */
+  const lines = q.uneven
+    ? [
+      printer,
+      [t('orca.noVaseTitle'), t('orca.noVase', { drop: nf(q.drop), where: t(q.dropBack ? 'editor.dropBack' : 'editor.dropFront'), wall: nf(q.shellWall, 2) })],
+      [t('orca.wallsTitle'), t('orca.walls', { lw: nf(q.lw, 2) })],
+      base,
+      [t('orca.seamTitle'), t('orca.seam')],
+    ]
+    : [printer, [t('orca.vaseTitle'), t('orca.vase')], base, [t('orca.smoothTitle'), t('orca.smooth')]];
+  if (!q.closed) lines.push([t('orca.brimTitle'), t(q.uneven ? 'orca.brimWalls' : 'orca.brim')]);
   if (anyCap) lines.push([t('orca.capsTitle'), t('orca.caps', { over: nf(threadOver) })]);
   return lines;
 }
@@ -32,7 +39,7 @@ export function readme(ctx, files, paramsFile, tr) {
   L.push(t('readme.heading'), '');
   L.push(t('readme.part', { h: nf(q.H), d: nf(2 * m.rMax, 1) }));
   L.push(t('readme.units'));
-  L.push(t('readme.contour'), '');
+  L.push(q.uneven ? t('readme.contourUneven', { drop: nf(q.drop), where: t(q.dropBack ? 'editor.dropBack' : 'editor.dropFront'), wall: nf(q.shellWall, 2) }) : t('readme.contour'), '');
   L.push(t('readme.files'));
   for (const f of files) L.push('  - ' + f);
   L.push('', t('readme.settings'));

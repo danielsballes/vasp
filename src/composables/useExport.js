@@ -59,7 +59,7 @@ async function exportAll() {
     const q = G.derive(params);
     const Q = QUALITY[params.quality];
     const tag = `${Math.round(q.H)}x${Math.round(2 * q.Rmax)}`;
-    const files = [{ name: t('files.body', { tag }), data: toSTL(G.buildBody(q, Q.seg, Q.dz), 'body') }];
+    const files = [{ name: t('files.body', { tag }), data: toSTL((q.uneven ? G.buildShell : G.buildBody)(q, Q.seg, Q.dz), 'body') }];
     for (const [which, key] of [['bottom', 'files.capBottom'], ['top', 'files.capTop']]) {
       const spec = G.capSpec(q, which);
       if (!spec) continue;

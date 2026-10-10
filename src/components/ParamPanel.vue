@@ -54,7 +54,7 @@ const sums = computed(() => {
       : params.twist ? t('summary.reliefTwist', { ...relief(Q.ribs, Q.ribA), twist: nf(params.twist) })
       : t('summary.relief', relief(Q.ribs, Q.ribA)),
     base: t('summary.mouth', { d: nf(2 * Q.Rb), state: t(Q.closed ? 'summary.closed' : Q.thB ? 'summary.threaded' : 'summary.open') }),
-    top: t('summary.mouth', { d: nf(2 * Q.Rt), state: t(Q.thT ? 'summary.threaded' : 'summary.plain') }),
+    top: t('summary.mouth', { d: nf(2 * Q.Rt), state: t(Q.thT ? 'summary.threaded' : Q.uneven ? 'summary.uneven' : 'summary.plain') }),
     thread: anyThread.value ? t('summary.thread', { pitch: nf(Q.pitch, 1) }) : t('summary.noThread'),
     export: t('quality.' + params.quality),
   };
@@ -79,8 +79,11 @@ function neckNote(which) {
   const L = bottom ? Q.Lb : Q.Lt, R = bottom ? Q.Rb : Q.Rt;
   const cap = caps.value[which];
   const inner = nf(Math.max(0, 2 * (R - Q.lw)), 1);
+  if (!bottom && Q.uneven) {
+    return { warn: params.topThread, text: t(params.topThread ? 'notes.unevenThread' : 'notes.uneven', { drop: nf(Q.drop), where: t(Q.dropBack ? 'editor.dropBack' : 'editor.dropFront'), wall: nf(Q.shellWall, 2) }) };
+  }
   if (bottom && Q.closed) {
-    return { warn: false, text: t('notes.closedBottom', { floor: nf(Q.baseT, 1), layers: Math.max(1, Math.round(Q.baseT / Q.lh)) }) };
+    return { warn: false, text: t(Q.uneven ? 'notes.closedBottomWalls' : 'notes.closedBottom', { floor: nf(Q.baseT, 1), layers: Math.max(1, Math.round(Q.baseT / Q.lh)) }) };
   }
   if (on && !active && R < 5) {
     return { warn: true, text: t('notes.tooNarrow', { d: nf(2 * R), inner }) };
@@ -188,13 +191,15 @@ function onReset() { resetParams(); setStatus('exporting.resetDone'); }
       <SwitchField id="botThread" :label="t('fields.thread')" :disabled="q.closed" :model-value="params.botThread" @update:model-value="setThread('bottom', $event)" />
       <RangeField id="botD" :label="t('fields.baseDiameter')" unit="mm" :min="6" :max="200" :step="1" v-model="params.botD" />
       <RangeField id="botL" :label="t('fields.neckLength')" unit="mm" :min="0" :max="40" :step="1" v-model="params.botL" />
+      <RangeField id="patternStart" :label="t('fields.patternStart')" unit="mm" :min="0" :max="60" :step="0.5" :hint="t('hints.patternStart')" v-model="params.patternStart" />
       <p class="form-text mb-0" :class="{ 'text-warn': noteBot.warn }" id="note-bot">{{ noteBot.text }}</p>
     </PanelSection>
 
     <PanelSection id="top" :title="t('sections.top')" :summary="sums.top">
-      <SwitchField id="topThread" :label="t('fields.thread')" :model-value="params.topThread" @update:model-value="setThread('top', $event)" />
+      <SwitchField id="topThread" :label="t('fields.thread')" :disabled="q.uneven" :model-value="params.topThread" @update:model-value="setThread('top', $event)" />
       <RangeField id="topD" :label="t('fields.mouthDiameter')" unit="mm" :min="6" :max="200" :step="1" v-model="params.topD" />
       <RangeField id="topL" :label="t('fields.neckLength')" unit="mm" :min="0" :max="40" :step="1" v-model="params.topL" />
+      <RangeField id="patternStop" :label="t('fields.patternStop')" unit="mm" :min="0" :max="60" :step="0.5" :hint="t('hints.patternStop')" v-model="params.patternStop" />
       <p class="form-text mb-0" :class="{ 'text-warn': noteTop.warn }" id="note-top">{{ noteTop.text }}</p>
     </PanelSection>
 
