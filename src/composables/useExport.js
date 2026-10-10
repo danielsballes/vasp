@@ -4,7 +4,7 @@ import { toSTL } from '../core/stl.js';
 import { zip } from '../core/zip.js';
 import { QUALITY } from '../core/params.js';
 import { readme } from '../core/notes.js';
-import { nf, t } from '../i18n/index.js';
+import { formatNumber, t } from '../i18n/index.js';
 import { useModel } from './useModel.js';
 import { useStatus } from './useStatus.js';
 
@@ -15,7 +15,7 @@ import { useStatus } from './useStatus.js';
 
 const { setStatus } = useStatus();
 const busy = ref(false);
-const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const claudeDownloads = typeof window !== 'undefined' && window.claude && typeof window.claude.use === 'function'
   ? window.claude.use('downloads').catch(() => null)
@@ -23,9 +23,9 @@ const claudeDownloads = typeof window !== 'undefined' && window.claude && typeof
 
 function saveLocally(blob, filename) {
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.append(a); a.click(); a.remove();
+  const link = document.createElement('a');
+  link.href = url; link.download = filename;
+  document.body.append(link); link.click(); link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
@@ -56,24 +56,25 @@ async function exportAll() {
   try {
     setStatus('exporting.building');
     await pause(40);
-    const q = G.derive(params);
-    const Q = QUALITY[params.quality];
-    const tag = `${Math.round(q.H)}x${Math.round(2 * q.Rmax)}`;
-    const files = [{ name: t('files.body', { tag }), data: toSTL(G.buildBody(q, Q.seg, Q.dz), 'body') }];
+    const shape = G.derive(params);
+    const quality = QUALITY[params.quality];
+    const tag = `${Math.round(shape.height)}x${Math.round(2 * shape.maxRadius)}`;
+    const files = [{ name: t('files.body', { tag }), data: toSTL(G.buildBody(shape, quality.segments, quality.ringStep), 'body') }];
     for (const [which, key] of [['bottom', 'files.capBottom'], ['top', 'files.capTop']]) {
-      const spec = G.capSpec(q, which);
+      const spec = G.capSpec(shape, which);
       if (!spec) continue;
-      files.push({ name: t(key, { d: Math.round(2 * spec.R) }), data: toSTL(G.buildCap(q, spec, Q.seg, Math.min(Q.dz, 0.25), false), which + ' cap') });
+      const capMesh = G.buildCap(shape, spec, quality.segments, Math.min(quality.ringStep, 0.25), false);
+      files.push({ name: t(key, { d: Math.round(2 * spec.neckRadius) }), data: toSTL(capMesh, which + ' cap') });
     }
     const paramsFile = t('files.params'), readmeFile = t('files.readme');
-    const names = files.map((f) => f.name).concat([paramsFile, readmeFile]);
+    const names = files.map((file) => file.name).concat([paramsFile, readmeFile]);
     files.push({ name: paramsFile, data: JSON.stringify({ app: 'Vasp', version: 1, params }, null, 2) });
-    files.push({ name: readmeFile, data: readme({ p: params, ...model.value }, names, paramsFile, { t, nf }) });
+    files.push({ name: readmeFile, data: readme({ params, ...model.value }, names, paramsFile, { t, formatNumber }) });
     setStatus('exporting.zipping');
     await pause(20);
     const blob = await zip(files);
     const file = t('files.zip', { tag });
-    const size = nf(blob.size / 1e6, 1);
+    const size = formatNumber(blob.size / 1e6, 1);
     await saveFile(blob, file, () => setStatus('exporting.confirm', { size }));
     setStatus('exporting.saved', { file, size }, 'ok');
   } catch (err) {

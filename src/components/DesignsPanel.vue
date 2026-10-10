@@ -5,7 +5,7 @@ import { useDesigns } from '../composables/useDesigns.js';
 import { useModel } from '../composables/useModel.js';
 import { useStatus } from '../composables/useStatus.js';
 import { NAME_MAX } from '../core/designs.js';
-import { df } from '../i18n/index.js';
+import { formatDate } from '../i18n/index.js';
 import PanelSection from './PanelSection.vue';
 
 /* Saved designs: save the current parameters under a name, load or delete a saved design, and
@@ -45,8 +45,8 @@ function onRemove(design) {
 }
 onBeforeUnmount(disarm);
 
-function onFile(e) {
-  const input = e.target, file = input.files && input.files[0];
+function onFile(event) {
+  const input = event.target, file = input.files && input.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => { restoreDesigns(String(reader.result)); input.value = ''; };
@@ -67,7 +67,7 @@ function onFile(e) {
         list="design-names" autocomplete="off" :maxlength="NAME_MAX" :placeholder="t('designs.placeholder')"
       >
       <datalist id="design-names">
-        <option v-for="d in designs" :key="d.id" :value="d.name" />
+        <option v-for="design in designs" :key="design.id" :value="design.name" />
       </datalist>
       <button type="submit" class="btn btn-sm btn-primary" id="btn-design-save">{{ t('designs.save') }}</button>
     </form>
@@ -75,16 +75,16 @@ function onFile(e) {
 
     <p v-if="!designs.length" class="form-text mb-0" id="designs-empty">{{ t('designs.empty') }}</p>
     <ul v-else class="design-list" id="design-list">
-      <li v-for="d in designs" :key="d.id" class="design-item" :class="{ current: d.name === session.designName }">
+      <li v-for="design in designs" :key="design.id" class="design-item" :class="{ current: design.name === session.designName }">
         <div class="design-info">
-          <span class="design-name">{{ d.name }}</span>
-          <small>{{ t('designs.savedOn', { date: df(d.savedAt) }) }}</small>
+          <span class="design-name">{{ design.name }}</span>
+          <small>{{ t('designs.savedOn', { date: formatDate(design.savedAt) }) }}</small>
         </div>
-        <button type="button" class="btn btn-sm btn-outline-secondary design-load" @click="loadDesign(d.id)">{{ t('designs.load') }}</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary design-load" @click="loadDesign(design.id)">{{ t('designs.load') }}</button>
         <button
-          type="button" class="btn btn-sm design-remove" :class="armed === d.id ? 'btn-danger' : 'btn-outline-secondary'"
-          @click="onRemove(d)" @blur="disarm"
-        >{{ armed === d.id ? t('designs.confirmRemove') : t('designs.remove') }}</button>
+          type="button" class="btn btn-sm design-remove" :class="armed === design.id ? 'btn-danger' : 'btn-outline-secondary'"
+          @click="onRemove(design)" @blur="disarm"
+        >{{ armed === design.id ? t('designs.confirmRemove') : t('designs.remove') }}</button>
       </li>
     </ul>
 

@@ -56,7 +56,7 @@ function report(stored, key, named, kind) {
 
 /* Another tab of the app changed the library: follow it. */
 if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e) => { if (e.key === STORE) designs.value = read(); });
+  window.addEventListener('storage', (event) => { if (event.key === STORE) designs.value = read(); });
 }
 
 /* Saves the current parameters under `name`, replacing a design with the same name. */
@@ -71,14 +71,14 @@ function saveDesign(name) {
 }
 
 function loadDesign(id) {
-  const design = designs.value.find((d) => d.id === id);
+  const design = designs.value.find((saved) => saved.id === id);
   if (!design) return;
   useModel().loadDesignParams(design.params, design.name);
   setStatus('designs.loaded', { name: design.name }, 'ok');
 }
 
 function deleteDesign(id) {
-  const design = designs.value.find((d) => d.id === id);
+  const design = designs.value.find((saved) => saved.id === id);
   if (!design) return;
   const { session } = useModel();
   const stored = commit(removeDesign(designs.value, id));

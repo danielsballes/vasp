@@ -41,6 +41,12 @@ Run `pnpm lint` and `pnpm test` before every commit. Both must pass.
 - **Support levels** (`src/core/print.js`): the share of each layer resting on the previous
   one. ≥50 % ample, 40–50 % enough, 15–40 % tight, <15 % scarce, ≤0 none. Don't confuse this %
   with the wall angle in degrees in any UI text.
+- **Readable names:** the code will be read by people who did not write it. Use descriptive names
+  for variables, parameters and properties (`shape.bodyBottom`, `segmentCount`, `heightShare`),
+  never single letters or abbreviations. Allowed exceptions: short loop counters (`i`, `j`),
+  coordinates (`x`, `y`, `z`), `th` for the angle θ and `t` for the translator. `params` are the
+  values the user edits (their keys are the parameters-file format and stay as they are) and
+  `shape` is what `derive()` works out from them.
 - **Naming:** the product is Vasp everywhere — storage keys (`vasp-v1`, `vasp-designs-v1`,
   `vasp-locale`), the design backup `kind` (`vasp-designs`), exported files and the notes. The
   project's former name must not come back.
