@@ -101,10 +101,13 @@ const stats = computed(() => {
   const sup = supportAt(over, q.lh, q.lw) * 100;
   const where = t(m.overBody >= m.overBot && m.overBody >= m.overTop ? 'stats.where.body' : m.overBot >= m.overTop ? 'stats.where.bottomThread' : 'stats.where.topThread');
   const r0 = g.rr[0];
-  const grams = (m.area * q.lw * PLA) / 1000 + (q.closed ? (Math.PI * r0 * r0 * q.baseT * PLA) / 1000 : 0);
+  const wall = q.uneven ? q.shellT : q.lw;   // an uneven mouth is printed with two walls
+  const grams = (m.area * wall * PLA) / 1000 + (q.closed ? (Math.PI * r0 * r0 * q.baseT * PLA) / 1000 : 0);
   const Q = QUALITY[params.quality];
   const nT = G.segments(q, Q.seg), nZ = Math.max(3, Math.ceil(q.H / Q.dz) + 1);
-  const tris = G.triCount(nT, nZ);
+  /* the shell adds the inner surface, from the rim down to the floor */
+  const nIn = q.uneven ? Math.max(2, Math.ceil((q.H - (q.closed ? q.baseT : 0)) / Q.dz) + 1) : 0;
+  const tris = !q.uneven ? G.triCount(nT, nZ) : q.closed ? G.triCount(nT, nZ + nIn) : 2 * nT * (nZ + nIn);
   const level = supportLevel(sup);
   return {
     size: t('stats.sizeValue', { h: nf(q.H), d: nf(dia, 1) }),
@@ -117,8 +120,8 @@ const stats = computed(() => {
     grams,
     massText: t('stats.massValue', { g: nf(grams) }),
     massNote: q.closed
-      ? t('stats.massClosed', { lw: nf(q.lw, 2), floor: nf(q.baseT, 1) })
-      : t('stats.massOpen', { lw: nf(q.lw, 2), area: nf(m.area / 100, 0) }),
+      ? t('stats.massClosed', { lw: nf(wall, 2), floor: nf(q.baseT, 1) })
+      : t('stats.massOpen', { lw: nf(wall, 2), area: nf(m.area / 100, 0) }),
     tris, meshStep: 360 / nT, dz: Q.dz,
     meshText: t('stats.meshValue', { n: nf(tris / 1000) }),
     meshNote: t('stats.meshNote', { quality: t('quality.' + params.quality).toLowerCase(), mb: nf((84 + tris * 50) / 1e6, 1) }),
@@ -234,6 +237,30 @@ function removePoint(i, side = 'R') {
   pts.splice(i - 1, 1);
   return Math.min(i, pts.length);
 }
+/* Uneven mouth, set by dragging a mouth handle down in the editor. Only one side can be lower:
+   mouthDrop > 0 lowers the left half (the back), < 0 the right half (the front). */
+function mouthDropOf(side) {
+  const d = params.mouthDrop || 0;
+  return side === 'L' ? Math.max(0, d) : Math.max(0, -d);
+}
+function setMouthDrop(side, d) {
+  const q = model.value.q;
+  d = G.clamp(d, 0, side === 'L' ? q.dropMaxL : q.dropMaxR);
+  /* The side that is not lowered only takes over from a clear pull, so that dragging its mouth
+     sideways (to change the diameter) does not undo the other side's drop. */
+  if (mouthDropOf(side) === 0 && d < 1) return;
+  const v = Math.round(d * 10) / 10;
+  params.mouthDrop = v === 0 ? 0 : side === 'L' ? v : -v;
+}
+/* Drag target: the drop that puts this side's mouth handle (the top of the body, q.zt) at height z.
+   Only the stretch above this side's highest point (z0) bends. */
+function moveMouth(side, z) {
+  const q = model.value.q;
+  const z0 = side === 'L' ? q.dropFromL : q.dropFromR;
+  if (q.zt - z0 < 1) return;
+  setMouthDrop(side, ((q.zt - z) * (q.H - z0)) / (q.zt - z0));
+}
+
 /* Both halves of the free profile alike (ptsL = null) or each with its own points. Splitting
    starts the left half as a copy of the right one, so the part does not change until edited. */
 function setSidesEqual(equal) {
@@ -244,6 +271,6 @@ export function useModel() {
   return {
     params, view, session, model, stats, advice, hasCaps, isFree, nozzle, lwMax,
     applyPreset, resetParams, importParams, snapshotParams, loadDesignParams, applyFit, setNozzle, setProfile, reseedPoints, setBase, setThread,
-    movePoint, canAddPoint, addPoint, addPointInGap, removePoint, setSidesEqual,
+    movePoint, canAddPoint, addPoint, addPointInGap, removePoint, setSidesEqual, mouthDropOf, setMouthDrop, moveMouth,
   };
 }

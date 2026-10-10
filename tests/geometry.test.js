@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as G from '../src/core/geometry.js';
 import { toSTL } from '../src/core/stl.js';
-import { DEFAULTS, PRESETS, applyParams, paramsFromFile, presetParams } from '../src/core/params.js';
+import { DEFAULTS, PRESETS, applyParams, paramsFromFile, presetParams, seedPoints } from '../src/core/params.js';
 import { suggestPrint, supportAt } from '../src/core/print.js';
 import { capClearance, inspectSTL } from './helpers.js';
 
@@ -173,5 +173,78 @@ describe('two-sided profile', () => {
     const open = () => ({ ...DEFAULTS, profile: 'free', pts: [[0.5, 0.9]], ptsL: [[0.6, 0.7]] });
     expect(applyParams(open(), { profile: 'free', pts: [[0.4, 1]] }).ptsL).toBeNull();
     expect(applyParams(open(), { H: 150 }).ptsL).toEqual([[0.6, 0.7]]);
+  });
+});
+
+describe('uneven mouth', () => {
+  const zAt = (g, j, i) => g.pos[(j * g.nT + i) * 3 + 2];
+  // the classic lantern drawn with the free profile, so the mouth can drop
+  const free = { ...DEFAULTS, profile: 'free', pts: seedPoints(DEFAULTS) };
+
+  it('no drop keeps the flat mouth and the same mesh', () => {
+    const a = G.buildBody(G.derive(free), 180, 0.8);
+    const b = G.buildBody(G.derive({ ...free, mouthDrop: 0 }), 180, 0.8);
+    expect(Array.from(b.pos)).toEqual(Array.from(a.pos));
+    expect(G.derive(free).uneven).toBe(false);
+  });
+
+  it('only the free profile can drop the mouth', () => {
+    expect(G.derive({ ...DEFAULTS, mouthDrop: 30 }).uneven).toBe(false);
+    expect(G.derive({ ...free, mouthDrop: 30 }).uneven).toBe(true);
+  });
+
+  it('lowers the rim on one side only, and leaves the part below the highest point as it was', () => {
+    const even = G.buildBody(G.derive({ ...free, topThread: false }), 180, 0.8);   // an uneven mouth has no thread
+    for (const [drop, low, high] of [[20, 'back', 'front'], [-20, 'front', 'back']]) {
+      const q = G.derive({ ...free, mouthDrop: drop });
+      const g = G.buildBody(q, 180, 0.8);
+      const top = g.nZ - 1, at = { front: 0, back: g.nT / 2 };
+      expect(zAt(g, top, at[high])).toBeCloseTo(q.H, 4);
+      expect(zAt(g, top, at[low])).toBeCloseTo(q.H - 20, 4);
+      expect(q.dropFrom).toBeCloseTo(q.zb + 0.9 * q.hb, 6);   // the highest seeded point
+      const below = 3 * g.nT * Math.floor((q.dropFrom / q.H) * (g.nZ - 1));
+      expect(Array.from(g.pos.slice(0, below))).toEqual(Array.from(even.pos.slice(0, below)));
+    }
+  });
+
+  it('undropZ undoes dropZ', () => {
+    const q = G.derive({ ...free, mouthDrop: -40 });
+    for (const z of [5, 60, 150, q.H]) for (const th of [0, 1, Math.PI]) expect(G.undropZ(q, G.dropZ(q, z, th), th)).toBeCloseTo(z, 6);
+  });
+
+  it('drops the top thread, which needs a flat mouth', () => {
+    expect(G.derive(free).thT).toBe(true);
+    const q = G.derive({ ...free, mouthDrop: 20 });
+    expect(q.thT).toBe(false);
+    expect(G.capSpec(q, 'top')).toBeNull();
+    expect(G.capSpec(q, 'bottom')).not.toBeNull();
+  });
+
+  it('exports the body as a closed shell, with an open or a closed base', () => {
+    for (const p of [{ ...free, mouthDrop: 25 }, { ...presetParams(GOURD, DEFAULTS), mouthDrop: -25 }]) {
+      const q = G.derive(p);
+      expect(q.uneven).toBe(true);
+      const g = G.buildShell(q, 180, 0.8);
+      const info = inspectSTL(toSTL(g, 'body'));
+      expect(info.openEdges).toBe(0);
+      expect(info.volume).toBeGreaterThan(0);
+      /* far less than the solid: it is only the wall (and the floor, when closed) */
+      expect(info.volume).toBeLessThan(0.25 * G.volume(G.buildBody(q, 180, 0.8)));
+    }
+  });
+
+  it('the shell wall is at least two lines thick', () => {
+    const q = G.derive({ ...free, mouthDrop: 25 });
+    const g = G.buildShell(q, 180, 0.8), nOut = G.buildBody(q, 180, 0.8).nZ;
+    const rAt = (j, i) => Math.hypot(g.pos[(j * g.nT + i) * 3], g.pos[(j * g.nT + i) * 3 + 1]);
+    /* the inner ring right after the rim sits under the outer rim */
+    for (const i of [0, g.nT / 4, g.nT / 2]) expect(rAt(nOut - 1, i) - rAt(nOut, i)).toBeGreaterThanOrEqual(q.shellT - 1e-3);
+  });
+
+  it('loads mouthDrop from a file and limits it to the body', () => {
+    expect(applyParams({ ...DEFAULTS }, { mouthDrop: -25 }).mouthDrop).toBe(-25);
+    const q = G.derive({ ...free, mouthDrop: 999 });
+    expect(q.drop).toBe(q.dropMax);
+    expect(q.dropMax).toBeCloseTo(q.H - q.dropFrom - 3, 6);   // down to 3 mm above the highest point
   });
 });

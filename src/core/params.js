@@ -7,7 +7,7 @@ export const DEFAULTS = {
   rings: 13, ringRelief: 1.2, ringWidth: 5,
   ribs: 8, ribRelief: 1, ribWidth: 16, twist: 0,
   botD: 76, botL: 16, botThread: true,
-  topD: 76, topL: 16, topThread: true,
+  topD: 76, topL: 16, topThread: true, mouthDrop: 0,
   pitch: 4, depth: 1.2, clearance: 0.3, capWall: 2, capFloor: 1.6,
   topHole: false, topHoleD: 40, botHole: false, botHoleD: 10,
   nozzle: 0.4, lh: 0.2, lw: 0.42, protect: true,

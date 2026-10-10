@@ -35,6 +35,12 @@ Run `pnpm lint` and `pnpm test` before every commit. Both must pass.
   - every body layer must stay one closed contour;
   - the wall tilt is limited by `shoulder`;
   - threaded necks must stay round, which is why ribs fade near them.
+  - the one exception is an uneven mouth: in the free-profile editor each half has its own mouth
+    handle, and dragging one down sets `mouthDrop` (> 0 back lower, < 0 front lower, free profile
+    only). The rim then drops on that side, and only the stretch above that side's highest point
+    bends. The top layers become open arcs, the top thread is turned off, and the body is exported
+    as a shell (`buildShell`, a two-line wall) with Orca settings for normal walls instead of vase
+    mode.
 
   The preview, the export and the support map all come from the same `r(θ, z)`, so a geometry
   change shows up everywhere. The tests check that every preset exports as a closed solid.

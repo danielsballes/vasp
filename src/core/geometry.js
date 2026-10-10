@@ -1,5 +1,8 @@
 /* Geometry core: the whole model is a surface r(θ, z) around the Z axis.
-   Every layer has a single closed contour, which is what spiral vase mode requires.
+   Every layer has a single closed contour, which is what spiral vase mode requires. The one
+   exception is an uneven mouth (`mouthDrop`, set by dragging a mouth down in the free-profile
+   editor): the rim is lower on one side, so the top layers are open arcs, and the body is exported
+   as a shell with a real wall to print without vase mode.
    This module depends on neither the browser nor Vue, so it can be tested with plain Node. */
 export const TAU = Math.PI * 2;
 const PZ = 0.1;             // sampling step of the base profile, in mm
@@ -78,6 +81,8 @@ export function derive(p) {
   q.baseT = clamp(+p.baseT || 1, 0.3, 6);
   q.pts = p.profile === 'free' ? cleanPoints(p.pts) : [];
   q.free = q.pts.length > 0;
+  q.ptsL = q.free ? cleanPoints(p.ptsL) : [];
+  q.asym = q.ptsL.length > 0;
   q.tanMax = Math.tan(rad(Math.min(q.limit + 5, 85)));   // headroom the rings may use on top of that tilt
   q.protect = p.protect !== false;
 
@@ -93,7 +98,22 @@ export function derive(p) {
   q.depB = Math.min(dep, q.Rb - 4);
   q.depT = Math.min(dep, q.Rt - 4);
   q.thB = !!p.botThread && !q.closed && Lb >= q.pitch && q.depB > 0.2;
-  q.thT = !!p.topThread && Lt >= q.pitch && q.depT > 0.2;
+  /* Uneven mouth (free profile only): the rim drops by `drop` mm towards the back (θ = π) when
+     mouthDrop > 0, or towards the front (θ = 0) when it is < 0. Like moving a point, only the
+     stretch above the highest point of that side bends (from `dropFrom` up); the rest of the part
+     stays as it is, and the mouth can come down to 3 mm above that point. */
+  const topZ = (pts) => q.zb + Math.max(0, ...pts.map((pt) => pt[0])) * q.hb;
+  q.dropFromR = topZ(q.pts);
+  q.dropFromL = topZ(q.asym ? q.ptsL : q.pts);
+  q.dropMaxR = Math.max(0, q.H - q.dropFromR - 3);
+  q.dropMaxL = Math.max(0, q.H - q.dropFromL - 3);
+  q.dropBack = (+p.mouthDrop || 0) > 0;
+  q.dropFrom = q.dropBack ? q.dropFromL : q.dropFromR;
+  q.dropMax = q.dropBack ? q.dropMaxL : q.dropMaxR;
+  q.drop = q.free ? clamp(Math.abs(+p.mouthDrop || 0), 0, q.dropMax) : 0;
+  q.uneven = q.drop >= 0.1;
+  q.shellT = 2 * q.lw;   // wall of the exported shell: two lines
+  q.thT = !!p.topThread && Lt >= q.pitch && q.depT > 0.2 && !q.uneven;   // a thread needs a flat mouth
   q.rlB = Math.min(0.75 * q.pitch, Lb / 3);
   q.rlT = Math.min(0.75 * q.pitch, Lt / 3);
 
@@ -116,8 +136,6 @@ export function derive(p) {
   const curveOf = (pts) => (p.curve === 'round' ? lobes : monotone)(
     [q.zb, ...pts.map((pt) => q.zb + pt[0] * q.hb), q.zt], [q.Rb, ...pts.map((pt) => pt[1] * q.Rmax), q.Rt]);
   const right = profileSide(q, M, dz, q.free ? curveOf(q.pts) : null);
-  q.ptsL = q.free ? cleanPoints(p.ptsL) : [];
-  q.asym = q.ptsL.length > 0;
   const left = q.asym ? profileSide(q, M, dz, curveOf(q.ptsL)) : right;
   q.want = right.want; q.wantL = left.want;   // requested profiles, before the tilt limit is applied
   q.wantDeg = Math.max(right.wantDeg, left.wantDeg);
@@ -259,6 +277,20 @@ export function bodyR(q, row, th) {
   return r < 1.5 ? 1.5 : r;   // relief never collapses the contour
 }
 
+/* Share of the drop at angle th: 1 on the lowered side, 0 on the other, a cosine in between. */
+const dropShare = (q, th) => (q.dropBack ? 0.5 - 0.5 * Math.cos(th) : 0.5 + 0.5 * Math.cos(th));
+/* Height of the point at height z of the even part, at angle th, once the mouth drops. Everything
+   up to dropFrom stays put, and above it the drop grows linearly up to the rim. */
+export function dropZ(q, z, th) {
+  if (!q.uneven || z <= q.dropFrom) return z;
+  return z - q.drop * dropShare(q, th) * ((z - q.dropFrom) / (q.H - q.dropFrom));
+}
+/* Inverse of dropZ: the height in the even part of a point drawn at height z. */
+export function undropZ(q, z, th) {
+  if (!q.uneven || z <= q.dropFrom) return z;
+  return q.dropFrom + ((z - q.dropFrom) * (q.H - q.dropFrom)) / (q.H - q.dropFrom - q.drop * dropShare(q, th));
+}
+
 /* ---------- caps: a regular solid part, smooth outside, with the female thread only on the inside.
    Printed with the closed face on the bed and the opening facing up. ---------- */
 export function capSpec(q, which) {
@@ -314,7 +346,7 @@ export function buildCap(q, cap, nT, dzTarget, creases) {
 }
 
 /* ---------- (θ, z) grid meshing ---------- */
-function grid(H, nT, nZ, rowFn, rFn) {
+function grid(H, nT, nZ, rowFn, rFn, zFn) {
   const pos = new Float32Array(nT * nZ * 3);
   const rr = new Float32Array(nT * nZ);
   const zs = new Float32Array(nZ);
@@ -331,10 +363,10 @@ function grid(H, nT, nZ, rowFn, rFn) {
       rr[k++] = r;
       pos[o++] = r * Math.cos(th);
       pos[o++] = r * Math.sin(th);
-      pos[o++] = z;
+      pos[o++] = zFn ? zFn(z, th) : z;
     }
   }
-  return { pos, rr, zs, tws, zone, nT, nZ, H, c0: [0, 0, 0], c1: [0, 0, H] };
+  return { pos, rr, zs, tws, zone, nT, nZ, H, c0: [0, 0, 0], c1: [0, 0, zFn ? (zFn(H, 0) + zFn(H, Math.PI)) / 2 : H] };
 }
 /* Segments around: a multiple of the rib count, so every crest lands on a vertex. */
 export function segments(q, target, perRib) {
@@ -344,22 +376,50 @@ export function segments(q, target, perRib) {
 export function buildBody(q, nTarget, dzTarget, perRib) {
   const nT = segments(q, nTarget, perRib);
   const nZ = Math.max(3, Math.ceil(q.H / dzTarget) + 1);
-  return grid(q.H, nT, nZ, (z) => bodyRow(q, z), (row, th) => bodyR(q, row, th));
+  return grid(q.H, nT, nZ, (z) => bodyRow(q, z), (row, th) => bodyR(q, row, th), q.uneven ? (z, th) => dropZ(q, z, th) : null);
+}
+/* Body of an uneven mouth as a shell: the outer surface up to the rim, then the inner one, `shellT`
+   inside it, back down. With an open base the two meet at the bottom (a loop mesh); with a closed
+   one the inside stops on the floor, `baseT` up. Every layer is then a ring or an open arc of wall,
+   which the slicer prints with normal walls. */
+export function buildShell(q, nTarget, dzTarget, perRib) {
+  const out = buildBody(q, nTarget, dzTarget, perRib);
+  const { nT, nZ } = out;
+  const z0 = q.closed ? Math.min(q.baseT, q.H / 2) : 0;
+  const nIn = Math.max(2, Math.ceil((q.H - z0) / dzTarget) + 1);
+  const pos = new Float32Array(nT * (nZ + nIn) * 3);
+  pos.set(out.pos);
+  let o = nT * nZ * 3;
+  for (let k = 0; k < nIn; k++) {
+    const z = q.H - ((q.H - z0) * k) / (nIn - 1);
+    const row = bodyRow(q, z);
+    /* Offset horizontally by the wall over the cosine of the profile's tilt, so the wall keeps its thickness. */
+    const t = clamp(z / q.dz, 0, q.M), i = Math.min(q.M - 1, Math.floor(t)), f = t - i;
+    const s = Math.max(Math.abs(q.slope[i] * (1 - f) + q.slope[i + 1] * f), Math.abs(q.slopeL[i] * (1 - f) + q.slopeL[i + 1] * f));
+    const off = q.shellT * Math.sqrt(1 + s * s);
+    for (let j = 0; j < nT; j++) {
+      const th = (TAU * j) / nT + row.tw;
+      const r = Math.max(0.5, bodyR(q, row, th) - off);
+      pos[o++] = r * Math.cos(th); pos[o++] = r * Math.sin(th); pos[o++] = dropZ(q, z, th);
+    }
+  }
+  return { pos, nT, nZ: nZ + nIn, H: q.H, loop: !q.closed, c0: [0, 0, 0], c1: [0, 0, z0] };
 }
 
 /* ---------- measurements: area, maximum radius and wall tilt ---------- */
 export function measure(g, wantAngles) {
-  const { pos, rr, zs, tws, zone, nT, nZ } = g;
+  const { pos, rr, tws, zone, nT, nZ } = g;
   const dth = TAU / nT;
   let rMax = 0, area = 0;
   const zoneMax = [0, 0, 0];
   const ang = wantAngles ? new Float32Array(nT * nZ) : null;
   for (let j = 0; j < nZ; j++) {
     const ja = Math.max(0, j - 1), jb = Math.min(nZ - 1, j + 1);
-    const dzz = zs[jb] - zs[ja];
-    const twp = (tws[jb] - tws[ja]) / dzz;
     for (let i = 0; i < nT; i++) {
       const k = j * nT + i;
+      /* vertical step at this vertex: it shrinks on the side where the mouth drops */
+      const dzz = pos[(jb * nT + i) * 3 + 2] - pos[(ja * nT + i) * 3 + 2];
+      const twp = (tws[jb] - tws[ja]) / dzz;
       const r = rr[k];
       if (r > rMax) rMax = r;
       const rth = (rr[j * nT + ((i + 1) % nT)] - rr[j * nT + ((i + nT - 1) % nT)]) / (2 * dth);

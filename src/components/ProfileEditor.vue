@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { dropZ, undropZ } from '../core/geometry.js';
 import { useModel } from '../composables/useModel.js';
 import { nf } from '../i18n/index.js';
 import SwitchField from './SwitchField.vue';
@@ -8,9 +9,11 @@ import SwitchField from './SwitchField.vue';
 /* Free-profile editor: the silhouette with draggable points. The filled silhouette is the profile
    that gets printed (tilt limit applied) and the dashed line is the one that was drawn. With equal
    sides only the right half has points and the left half mirrors it; with different sides each
-   half has its own points (the right one is the front of the part, θ = 0, the left one the back). */
+   half has its own points (the right one is the front of the part, θ = 0, the left one the back).
+   Each half has its own mouth handle: dragging one down lowers the mouth on that side (an uneven
+   mouth, see mouthDrop), and that half is drawn as low as it really is. */
 const { t } = useI18n();
-const { params, model, view, movePoint, canAddPoint, addPoint, addPointInGap, removePoint, reseedPoints, setSidesEqual } = useModel();
+const { params, model, view, movePoint, canAddPoint, addPoint, addPointInGap, removePoint, reseedPoints, setSidesEqual, mouthDropOf, setMouthDrop, moveMouth } = useModel();
 
 const W = 320, H = 300, PAD = 18;
 const svg = ref(null);
@@ -19,42 +22,55 @@ let drag = null;
 const twoSides = computed(() => !!(params.ptsL && params.ptsL.length));
 const sidePts = (side) => (side === 'L' && twoSides.value ? params.ptsL : params.pts) || [];
 
-/* Handles, in order: base, right points, top, then the left points when the sides differ.
-   Each one knows its side ('R' / 'L') and its index within the side (0 base, n + 1 top). */
+/* Handles, in order: base, right points, right mouth, the left points when the sides differ, and
+   the left mouth. Each one knows its side ('R' / 'L') and its index within the side (0 base,
+   n + 1 mouth). The two mouths share the diameter; each can be dragged down on its own. */
 const geo = computed(() => {
   const q = model.value.q, pR = params.pts || [], two = twoSides.value, pL = two ? params.ptsL : [];
   const sc = Math.min((W - 2 * PAD) / (2 * q.Rmax), (H - 2 * PAD) / q.H);
   const cx = W / 2, y0 = H - PAD - (H - 2 * PAD - q.H * sc) / 2;
   const X = (r) => cx + r * sc, Y = (z) => y0 - z * sc;
+  const YR = (z) => Y(dropZ(q, z, 0)), YL = (z) => Y(dropZ(q, z, Math.PI));   // each half as low as its mouth
   const n = pR.length;
+  const mouth = (side) => {
+    const drop = mouthDropOf(side) && q.uneven ? q.drop : 0;
+    return {
+      x: X((side === 'L' ? -1 : 1) * q.Rt), y: (side === 'L' ? YL : YR)(q.zt), end: true, side, i: sidePts(side).length + 1,
+      label: t('editor.topLabel', { d: nf(2 * q.Rt) }) + ` (${t(side === 'L' ? 'editor.sideLeft' : 'editor.sideRight')})`
+        + (drop ? ' · ' + t('editor.dropLabel', { mm: nf(drop) }) : ''),
+    };
+  };
   const sideName = (side) => (two ? t(side === 'L' ? 'editor.sideLeft' : 'editor.sideRight') : '');
   const point = (side, sign) => (p, i) => ({
-    x: X(sign * p[1] * q.Rmax), y: Y(q.zb + p[0] * q.hb), end: false, side, i: i + 1,
+    x: X(sign * p[1] * q.Rmax), y: (side === 'L' ? YL : YR)(q.zb + p[0] * q.hb), end: false, side, i: i + 1,
     label: t('editor.pointLabel', { i: i + 1, u: nf(p[0] * 100), d: nf(2 * p[1] * q.Rmax) }) + (two ? ` (${sideName(side)})` : ''),
   });
   const handles = [
     { x: X(q.Rb), y: Y(q.zb), end: true, side: 'R', i: 0, label: t('editor.baseLabel', { d: nf(2 * q.Rb) }) },
     ...pR.map(point('R', 1)),
-    { x: X(q.Rt), y: Y(q.zt), end: true, side: 'R', i: n + 1, label: t('editor.topLabel', { d: nf(2 * q.Rt) }) },
+    mouth('R'),
     ...pL.map(point('L', -1)),
+    mouth('L'),
   ];
   const stepI = Math.max(1, Math.round(1 / q.dz));
   const baseL = two ? q.baseL : q.base, wantL = two ? q.wantL : q.want;
   const right = [], left = [], want = [], wantLeft = [];
   let clipped = 0;
   for (let i = 0; i <= q.M; i += stepI) {
-    const y = Y(i * q.dz).toFixed(1);
+    const y = YR(i * q.dz).toFixed(1), yL = YL(i * q.dz).toFixed(1);
     right.push(`${X(q.base[i]).toFixed(1)},${y}`);
-    left.push(`${X(-baseL[i]).toFixed(1)},${y}`);
+    left.push(`${X(-baseL[i]).toFixed(1)},${yL}`);
     want.push(`${X(q.want[i]).toFixed(1)},${y}`);
-    if (two) wantLeft.push(`${X(-wantL[i]).toFixed(1)},${y}`);
+    if (two) wantLeft.push(`${X(-wantL[i]).toFixed(1)},${yL}`);
     clipped = Math.max(clipped, q.want[i] - q.base[i], wantL[i] - baseL[i]);
   }
   return {
     cx, yTop: Y(q.H) - 6, yBot: Y(0) + 6, handles, n, nL: pL.length, clipped, sideName,
     shape: `M${right.join('L')}L${left.reverse().join('L')}Z`,
     want: `M${want.join('L')}` + (two ? `M${wantLeft.join('L')}` : ''),
-    toU: (y) => ((y0 - y) / sc - q.zb) / q.hb,
+    toZ: (y) => (y0 - y) / sc,
+    /* undoes YR / YL (left = true): above the bottom neck the lowered half is squeezed */
+    toU: (y, left) => (undropZ(q, (y0 - y) / sc, left ? Math.PI : 0) - q.zb) / q.hb,
     toR: (x) => Math.abs(x - cx) / sc,
     sideAt: (x) => (two && x < cx ? 'L' : 'R'),
   };
@@ -108,12 +124,14 @@ function onDown(e) {
 function onMove(e) {
   if (drag === null) return;
   const [x, y] = at(e), h = geo.value.handles[drag];
-  if (h) movePoint(h.i, geo.value.toU(y), geo.value.toR(x), h.side);
+  if (!h) return;
+  if (h.end && h.i > 0) moveMouth(h.side, geo.value.toZ(y));
+  movePoint(h.i, geo.value.toU(y, h.side === 'L'), geo.value.toR(x), h.side);
 }
 function onUp() { drag = null; }
 function onDbl(e) {
   const [x, y] = at(e), side = geo.value.sideAt(x);
-  select(side, addPoint(geo.value.toU(y), geo.value.toR(x), side));
+  select(side, addPoint(geo.value.toU(y, x < geo.value.cx), geo.value.toR(x), side));
 }
 function onKey(e, idx) {
   const q = model.value.q, h = geo.value.handles[idx], big = e.shiftKey ? 5 : 1;
@@ -121,8 +139,9 @@ function onKey(e, idx) {
   const u = h.end ? null : pts[h.i - 1][0];
   const r = h.end ? (h.i === 0 ? params.botD / 2 : params.topD / 2) : pts[h.i - 1][1] * q.Rmax;
   const out = h.side === 'L' ? -1 : 1;   // on the left half, ArrowLeft moves the wall outwards
-  if (e.key === 'ArrowUp') { if (!h.end) movePoint(h.i, u + 0.01 * big, null, h.side); }
-  else if (e.key === 'ArrowDown') { if (!h.end) movePoint(h.i, u - 0.01 * big, null, h.side); }
+  const isMouth = h.end && h.i > 0;
+  if (e.key === 'ArrowUp') { if (!h.end) movePoint(h.i, u + 0.01 * big, null, h.side); else if (isMouth) setMouthDrop(h.side, mouthDropOf(h.side) - big); }
+  else if (e.key === 'ArrowDown') { if (!h.end) movePoint(h.i, u - 0.01 * big, null, h.side); else if (isMouth) setMouthDrop(h.side, Math.max(1, mouthDropOf(h.side) + big)); }
   else if (e.key === 'ArrowRight') movePoint(h.i, null, r + 0.5 * big * out, h.side);
   else if (e.key === 'ArrowLeft') movePoint(h.i, null, r - 0.5 * big * out, h.side);
   else if (e.key === 'Delete' || e.key === 'Backspace') { if (!h.end) select(h.side, removePoint(h.i, h.side)); }
@@ -152,9 +171,9 @@ function visibleSpan(el) {
 /* (x, y) are in SVG units; the menu is placed in CSS pixels inside the editor. */
 async function openMenu(x, y, index, returnTo) {
   const b = svg.value.getBoundingClientRect(), w = wrap.value.getBoundingClientRect();
-  const u = geo.value.toU(y), r = geo.value.toR(x);
   const h = index >= 0 ? geo.value.handles[index] : null;
   const side = h ? h.side : geo.value.sideAt(x);
+  const u = geo.value.toU(y, h ? h.side === 'L' : x < geo.value.cx), r = geo.value.toR(x);
   const count = sidePts(side).length;
   const onPoint = !!h && !h.end;
   menu.value = {
