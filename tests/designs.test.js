@@ -112,9 +112,12 @@ describe('designs saved before the renames', () => {
       for (const [part, fingerprint] of Object.entries(parts)) {
         const label = `${design.name}, ${part}`;
         expect(fingerprint.triangles, label).toBe(expected[part].triangles);
-        expect(fingerprint.volume, label).toBeCloseTo(expected[part].volume, 3);
-        for (const key of ['sums', 'low', 'high']) {
-          fingerprint[key].forEach((value, axis) => expect(value, `${label}, ${key}[${axis}]`).toBeCloseTo(expected[part][key][axis], 3));
+        /* equal up to a millionth of the value: only last-bit rounding may differ */
+        const same = (value, wanted, what) => expect(Math.abs(value - wanted), `${label}, ${what}`).toBeLessThanOrEqual(1e-6 * Math.max(1, Math.abs(wanted)));
+        same(fingerprint.volume, expected[part].volume, 'volume');
+        same(fingerprint.area, expected[part].area, 'area');
+        for (const key of ['sums', 'squares', 'weighted', 'low', 'high']) {
+          fingerprint[key].forEach((value, axis) => same(value, expected[part][key][axis], `${key}[${axis}]`));
         }
       }
     }
