@@ -185,6 +185,9 @@ export function derive(p) {
   q.ribWf = clamp((+p.ribWidth || 30) / 100, 0.05, 1);
   q.twist = q.ribs > 0 && q.ribA !== 0 ? rad(+p.twist || 0) : 0;
   q.ramp = clamp(q.hb * 0.18, 4, 25);
+  /* length of the transition into the mouth, in mm: up to 80, and never more than 60 % of the body */
+  q.neckBlendMax = Math.min(80, 0.6 * q.hb);
+  q.neckBlend = clamp(+p.neckBlend || 0, 0, q.neckBlendMax);
 
   /* Base profile: a superelliptic barrel or a free curve through points, limited to the maximum
      wall tilt starting from the radius of each mouth. With `ptsL`, the left side (θ = π) gets its
@@ -296,14 +299,54 @@ function profileSide(q, M, dz, curve) {
     const barrel = q.Rmax * Math.pow(Math.max(0, 1 - Math.pow(u, q.n)), 1 / q.n);
     base[i] = Math.max(barrel, lower ? q.Rb : q.Rt);
   }
-  const want = Float64Array.from(base);
-  let wmax = 0;
-  for (let i = 1; i <= M; i++) wmax = Math.max(wmax, Math.abs(base[i] - base[i - 1]) / dz);
   const ib = Math.min(M, Math.round(q.zb / dz));
   const it = Math.max(0, Math.round(q.zt / dz));
   const step = dz * q.tanS;
-  for (let i = ib + 1; i <= it; i++) base[i] = Math.min(base[i], base[i - 1] + step);
-  for (let i = it - 1; i >= ib; i--) base[i] = Math.min(base[i], base[i + 1] + step);
+  const applyTiltLimit = () => {
+    for (let i = ib + 1; i <= it; i++) base[i] = Math.min(base[i], base[i - 1] + step);
+    for (let i = it - 1; i >= ib; i--) base[i] = Math.min(base[i], base[i + 1] + step);
+  };
+  /* Transition into the mouth: the last `neckBlend` mm of the body become a flare that reaches the
+     mouth radius upright (a parabola from the body's radius there), so the wall bends into the
+     neck or the rim gradually instead of in a short turn. The corner where the flare meets the
+     body is rounded off over a quarter of its length. */
+  const blendStart = Math.round((q.zt - q.neckBlend) / dz);
+  const blends = q.neckBlend > 0 && blendStart > ib + 1 && blendStart < it;
+  const blendIntoMouth = (outline) => {
+    const blendLength = (it - blendStart) * dz;
+    const startRadius = outline[blendStart];
+    for (let i = blendStart + 1; i < it; i++) {
+      const progress = ((i - blendStart) * dz) / blendLength;   // 0 where the flare starts, 1 at the mouth
+      outline[i] = q.Rt + (startRadius - q.Rt) * (1 - progress) ** 2;
+    }
+    /* Round the corner with a moving average a few times; the window is in samples. */
+    const roundingWindow = Math.max(1, Math.round(Math.min(blendLength / 4, 15) / dz));
+    for (let pass = 0; pass < 3; pass++) {
+      const runningSum = new Float64Array(M + 2);
+      for (let i = 0; i <= M; i++) runningSum[i + 1] = runningSum[i] + outline[i];
+      const first = Math.max(ib + 1, blendStart - 2 * roundingWindow);
+      const last = Math.min(it, blendStart + 2 * roundingWindow);
+      for (let i = first; i < last; i++) {
+        /* shrinks near the necks so they stay put, and towards both ends of the rounded stretch so it
+           joins the rest without a step */
+        const halfWidth = Math.min(roundingWindow, i - ib, it - i, i - first, last - i);
+        if (halfWidth > 0) outline[i] = (runningSum[i + halfWidth + 1] - runningSum[i - halfWidth]) / (2 * halfWidth + 1);
+      }
+    }
+  };
+  /* The requested profile, which the editor and the shoulder hint compare with the result, already
+     includes the transition: it is part of what was asked for, not a trim. */
+  const want = Float64Array.from(base);
+  if (blends) blendIntoMouth(want);
+  let wmax = 0;
+  for (let i = 1; i <= M; i++) wmax = Math.max(wmax, Math.abs(want[i] - want[i - 1]) / dz);
+  /* The part itself: the tilt limit, then the transition from the limited body, and the tilt limit
+     again on top. */
+  applyTiltLimit();
+  if (blends) {
+    blendIntoMouth(base);
+    applyTiltLimit();
+  }
   /* Smoothing with a window that shrinks towards the necks, so they stay put. */
   const K = Math.round(3 / dz);
   for (let pass = 0; pass < 2; pass++) {
