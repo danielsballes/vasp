@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import es from '../src/i18n/locales/es.js';
 import en from '../src/i18n/locales/en.js';
-import { DEFAULTS, ENUMS, PRESETS, QUALITY } from '../src/core/params.js';
+import { DEFAULTS, ENUMS, PRESETS, QUALITY, seedPoints } from '../src/core/params.js';
 import { supportLevel } from '../src/core/print.js';
 import { orcaLines, readme } from '../src/core/notes.js';
 import * as G from '../src/core/geometry.js';
@@ -97,14 +97,44 @@ describe('message files', () => {
 });
 
 describe('printing notes', () => {
+  /* the classic lantern drawn with the free profile, so its mouth can drop */
+  const free = { ...DEFAULTS, profile: 'free', pts: seedPoints(DEFAULTS) };
+  /* `lines` are the message keys of the Orca settings titles, in order */
   const variants = {
-    'threaded lantern with cap holes': { ...DEFAULTS, topHole: true, botHole: true },
-    'closed vase without threads': { ...DEFAULTS, base: 'closed', botThread: false, topThread: false },
+    'threaded lantern with cap holes': {
+      params: { ...DEFAULTS, topHole: true, botHole: true },
+      lines: ['printerTitle', 'vaseTitle', 'baseTitle', 'smoothTitle', 'brimTitle', 'capsTitle'],
+      texts: ['orca.vase', 'orca.baseThread', 'orca.brim'],
+    },
+    'closed vase without threads': {
+      params: { ...DEFAULTS, base: 'closed', botThread: false, topThread: false },
+      lines: ['printerTitle', 'vaseTitle', 'baseTitle', 'smoothTitle'],
+      texts: ['orca.vase'],
+    },
+    'uneven mouth, open threaded base': {
+      params: { ...free, mouthDrop: 25 },
+      lines: ['printerTitle', 'noVaseTitle', 'wallsTitle', 'baseTitle', 'seamTitle', 'brimTitle', 'capsTitle'],
+      texts: ['orca.seam', 'orca.baseThread', 'orca.brimWalls'],
+      uneven: true,
+    },
+    'uneven mouth, closed base': {
+      params: { ...free, mouthDrop: -25, base: 'closed', botThread: false },
+      lines: ['printerTitle', 'noVaseTitle', 'wallsTitle', 'baseTitle', 'seamTitle'],
+      uneven: true,
+    },
+    'uneven mouth too narrow for the whole wall': {
+      /* 0.8 mm nozzle, a 6 mm mouth and 3 mm grooves: the shell cannot keep its 1.64 mm wall */
+      params: { ...free, mouthDrop: 20, nozzle: 0.8, lw: 0.82, lh: 0.4, topD: 6, ribRelief: -3 },
+      lines: ['printerTitle', 'noVaseTitle', 'wallsTitle', 'thinWallTitle', 'baseTitle', 'seamTitle', 'brimTitle', 'capsTitle'],
+      uneven: true,
+    },
   };
   for (const [code, messages] of Object.entries(LOCALES)) {
-    for (const [name, p] of Object.entries(variants)) {
+    for (const [name, variant] of Object.entries(variants)) {
       it(`"${code}": ${name}`, () => {
+        const p = variant.params;
         const q = G.derive(p);
+        expect(q.uneven).toBe(!!variant.uneven);
         const m = G.measure(G.buildBody(q, 96, 1), false);
         const caps = {};
         for (const which of ['bottom', 'top']) {
@@ -114,14 +144,26 @@ describe('printing notes', () => {
         const tr = translator(messages);
         const ctx = { p, q, m, caps };
         const lines = orcaLines(ctx, tr);
-        expect(lines.length).toBeGreaterThanOrEqual(4);
+        expect(lines.map(([title]) => title)).toEqual(variant.lines.map((key) => messages.orca[key]));
         for (const [title, text] of lines) {
           expect(title).not.toMatch(/[{}]/);
           expect(text).not.toMatch(/[{}]|undefined|NaN/);
         }
+        const texts = lines.map(([, text]) => text);
+        for (const key of variant.texts || []) expect(texts).toContain(tr.t(key, {}));
+        if (q.shellThin) expect(texts).toContain(tr.t('orca.thinWall', { thin: tr.nf(q.shellWallMin, 2), wall: tr.nf(q.shellWall, 2) }));
+        if (variant.uneven && q.closed) {
+          const layers = Math.max(1, Math.round(q.baseT / q.lh));
+          expect(texts).toContain(tr.t('orca.baseClosedWalls', { layers, floor: tr.nf(q.baseT, 1) }));
+        }
         const text = readme(ctx, ['body.stl'], 'parameters.json', tr);
         expect(text).toContain('parameters.json');
         expect(text).not.toMatch(/[{}]|undefined|NaN/);
+        const where = tr.t(q.dropBack ? 'editor.dropBack' : 'editor.dropFront', {});
+        const contour = variant.uneven
+          ? tr.t('readme.contourUneven', { drop: tr.nf(q.drop), where, wall: tr.nf(q.shellWall, 2) })
+          : tr.t('readme.contour', {});
+        expect(text).toContain(contour);
       });
     }
   }

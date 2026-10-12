@@ -1,5 +1,8 @@
 /* Geometry core: the whole model is a surface r(θ, z) around the Z axis.
-   Every layer has a single closed contour, which is what spiral vase mode requires.
+   Every layer has a single closed contour, which is what spiral vase mode requires. The one
+   exception is an uneven mouth (`mouthDrop`, set by dragging a mouth down in the free-profile
+   editor): the rim is lower on one side, so the top layers are open arcs, and the body is exported
+   as a shell with a real wall to print without vase mode.
    This module depends on neither the browser nor Vue, so it can be tested with plain Node. */
 export const TAU = Math.PI * 2;
 const PZ = 0.1;             // sampling step of the base profile, in mm
@@ -57,6 +60,55 @@ export function cleanPoints(pts) {
   return res.slice(0, 12);
 }
 
+/* One smoothing pass over the free-profile points (u, r), with the base (0, baseRadius) and the
+   mouth (1, mouthRadius) as fixed ends: the whole curve through them is blurred (a gaussian over
+   the height) and stretched back to its previous widest radius, then read again at the same
+   heights. Repeated passes fill waists and merge bellies into one round shape without making the
+   part thinner. Radii are relative to the widest one, as in `pts`. */
+export function smoothPoints(points, baseRadius, mouthRadius, sigma = 0.06) {
+  if (!points.length) return points;
+  const samples = 200;   // the curve is sampled at samples + 1 evenly spaced heights
+  const curve = monotone(
+    [0, ...points.map(([height]) => height), 1],
+    [baseRadius, ...points.map(([, radius]) => radius), mouthRadius],
+  );
+  const radiusAt = (sample) => (sample <= 0 ? baseRadius : sample >= samples ? mouthRadius : curve(sample / samples));
+  const radii = Array.from({ length: samples + 1 }, (_, sample) => radiusAt(sample));
+
+  /* Gaussian blur over the height; outside the body the curve holds its end radii. */
+  const sigmaSamples = sigma * samples;
+  const kernelRadius = Math.ceil(3 * sigmaSamples);
+  const kernel = Array.from({ length: 2 * kernelRadius + 1 }, (_, index) => Math.exp(-(((index - kernelRadius) / sigmaSamples) ** 2) / 2));
+  const blurred = radii.map((_, sample) => {
+    let weightedSum = 0, totalWeight = 0;
+    for (let offset = -kernelRadius; offset <= kernelRadius; offset++) {
+      const weight = kernel[offset + kernelRadius];
+      weightedSum += weight * radiusAt(sample + offset);
+      totalWeight += weight;
+    }
+    return weightedSum / totalWeight;
+  });
+
+  /* Stretch what sticks out of the line between the ends so the widest radius stays the same. When
+     an end is already the widest, there is no bulge to keep: the stretch would only blow up what
+     the blur left near the line. */
+  const endLine = (sample) => baseRadius + ((mouthRadius - baseRadius) * sample) / samples;
+  const bulge = (sample) => blurred[sample] - endLine(sample);
+  let widest = 0;
+  for (let sample = 1; sample < samples; sample++) if (bulge(sample) > bulge(widest)) widest = sample;
+  const widestBefore = Math.max(...radii) - endLine(widest);
+  const endIsWidest = Math.max(...radii) <= Math.max(baseRadius, mouthRadius) + 1e-9;
+  const stretch = !endIsWidest && bulge(widest) > 1e-6 ? Math.max(1, widestBefore / bulge(widest)) : 1;
+
+  return points.map(([height]) => {
+    const position = height * samples, below = Math.floor(position), above = Math.min(samples, below + 1);
+    const fraction = position - below;
+    const bulgeHere = bulge(below) * (1 - fraction) + bulge(above) * fraction;
+    const radius = baseRadius + (mouthRadius - baseRadius) * height + stretch * bulgeHere;
+    return [height, +clamp(radius, 0.06, 1).toFixed(4)];
+  });
+}
+
 /* ---------- derived parameters and base profile ---------- */
 export function derive(p) {
   const q = {};
@@ -78,6 +130,8 @@ export function derive(p) {
   q.baseT = clamp(+p.baseT || 1, 0.3, 6);
   q.pts = p.profile === 'free' ? cleanPoints(p.pts) : [];
   q.free = q.pts.length > 0;
+  q.ptsL = q.free ? cleanPoints(p.ptsL) : [];
+  q.asym = q.ptsL.length > 0;
   q.tanMax = Math.tan(rad(Math.min(q.limit + 5, 85)));   // headroom the rings may use on top of that tilt
   q.protect = p.protect !== false;
 
@@ -93,13 +147,37 @@ export function derive(p) {
   q.depB = Math.min(dep, q.Rb - 4);
   q.depT = Math.min(dep, q.Rt - 4);
   q.thB = !!p.botThread && !q.closed && Lb >= q.pitch && q.depB > 0.2;
-  q.thT = !!p.topThread && Lt >= q.pitch && q.depT > 0.2;
+  /* Uneven mouth (free profile only): the rim drops by `drop` mm towards the back (θ = π) when
+     mouthDrop > 0, or towards the front (θ = 0) when it is < 0. Like moving a point, only the
+     stretch above the highest point of that side bends (from `dropFrom` up); the rest of the part
+     stays as it is, and the mouth can come down to 3 mm above that point. */
+  const highestPointZ = (points) => q.zb + Math.max(0, ...points.map(([height]) => height)) * q.hb;
+  q.dropFromR = highestPointZ(q.pts);
+  q.dropFromL = highestPointZ(q.asym ? q.ptsL : q.pts);
+  q.dropMaxR = Math.max(0, q.H - q.dropFromR - 3);
+  q.dropMaxL = Math.max(0, q.H - q.dropFromL - 3);
+  q.dropBack = (+p.mouthDrop || 0) > 0;
+  q.dropFrom = q.dropBack ? q.dropFromL : q.dropFromR;
+  q.dropMax = q.dropBack ? q.dropMaxL : q.dropMaxR;
+  q.drop = q.free ? clamp(Math.abs(+p.mouthDrop || 0), 0, q.dropMax) : 0;
+  q.uneven = q.drop >= 0.1;
+  q.shellWall = 2 * q.lw;   // wall of the exported shell: two lines
+  q.thT = !!p.topThread && Lt >= q.pitch && q.depT > 0.2 && !q.uneven;   // a thread needs a flat mouth
   q.rlB = Math.min(0.75 * q.pitch, Lb / 3);
   q.rlT = Math.min(0.75 * q.pitch, Lt / 3);
 
+  /* Patterns (rings and ribs) stop `plainTop` mm below the rim and start `plainBottom` mm above
+     the floor, leaving plain bands at the mouth and at the base. The rings are spread between
+     ringsBottomZ and ringsTopZ; the ribs fade in over `ribFadeBottom` mm above the base band and
+     out over `ribFadeTop` mm under ribsTopZ, where the mouth band starts. */
+  q.plainTop = clamp(+p.patternStop || 0, 0, Math.max(0, q.H - q.zb - 5));
+  q.ribsTopZ = q.H - q.plainTop;
+  q.ringsTopZ = Math.min(q.zt, q.ribsTopZ);
+  q.plainBottom = clamp(+p.patternStart || 0, 0, Math.max(0, q.ringsTopZ - 5));
+  q.ringsBottomZ = Math.max(q.zb, q.plainBottom);
   q.rings = Math.max(0, Math.round(+p.rings || 0));
   q.ringA = +p.ringRelief || 0;
-  q.ringW = q.rings > 0 ? Math.min(Math.max(0.5, +p.ringWidth || 1), q.hb / q.rings) : 0;
+  q.ringW = q.rings > 0 ? Math.min(Math.max(0.5, +p.ringWidth || 1), (q.ringsTopZ - q.ringsBottomZ) / q.rings) : 0;
   q.ribs = clamp(Math.round(+p.ribs || 0), 0, 160);
   q.ribCrest = p.ribShape === 'crest';
   q.ribProp = !!p.ribProp;
@@ -119,30 +197,66 @@ export function derive(p) {
   const curveOf = (pts) => (p.curve === 'round' ? lobes : monotone)(
     [q.zb, ...pts.map((pt) => q.zb + pt[0] * q.hb), q.zt], [q.Rb, ...pts.map((pt) => pt[1] * q.Rmax), q.Rt]);
   const right = profileSide(q, M, dz, q.free ? curveOf(q.pts) : null);
-  q.ptsL = q.free ? cleanPoints(p.ptsL) : [];
-  q.asym = q.ptsL.length > 0;
   const left = q.asym ? profileSide(q, M, dz, curveOf(q.ptsL)) : right;
   q.want = right.want; q.wantL = left.want;   // requested profiles, before the tilt limit is applied
   q.wantDeg = Math.max(right.wantDeg, left.wantDeg);
   const base = right.base, slope = right.slope;
+  const hasRibs = q.ribA !== 0;
+  const twistUse = hasRibs ? (Math.abs(q.ribA) * 0.5 * q.ribs * Math.abs(q.twist)) / (q.ribWf * q.hb) : 0;
+  const rampUse = hasRibs ? (Math.abs(q.ribA) * 1.5) / q.ramp : 0;
+  /* Length of the rib fades at the plain bands. A fade three times as long as the relief adds up to
+     ~27° of tilt; with `protect` on, it grows (up to half the patterned stretch) until that extra
+     tilt, on top of the wall's own, stays under tanMax. */
+  const ribFade = (bandEdge, direction) => {
+    const shortest = clamp(3 * Math.abs(q.ribA), 3, q.ramp);
+    if (!q.protect || !hasRibs) return shortest;
+    const longest = Math.max(shortest, (q.ribsTopZ - q.plainBottom) / 2);
+    /* steepest the wall already is over a fade of this length */
+    const usedOver = (length) => {
+      const first = Math.max(0, Math.floor(Math.min(bandEdge, bandEdge + direction * length) / dz));
+      const last = Math.min(M, Math.ceil(Math.max(bandEdge, bandEdge + direction * length) / dz));
+      let used = 0;
+      for (let i = first; i <= last; i++) {
+        const z = i * dz;
+        const nearThread = (q.thB && z < q.zb + q.ramp) || (q.thT && z > q.zt - q.ramp);   // the ribs also fade there
+        used = Math.max(used, Math.max(Math.abs(slope[i]), Math.abs(left.slope[i])) + (nearThread ? rampUse : 0));
+      }
+      return used + twistUse;
+    };
+    /* A longer fade reaches further into the wall, where it may be steeper: grow it until it fits.
+       Where the wall (with the twist) already uses all the headroom, no length helps, so the fade
+       stays short and the support map shows that stretch. */
+    let length = shortest;
+    for (let pass = 0; pass < 8; pass++) {
+      const headroom = q.tanMax - usedOver(length);
+      if (headroom <= 0) return shortest;
+      const needed = (1.5 * Math.abs(q.ribA)) / headroom;
+      if (needed <= length + 0.01 || length >= longest) break;
+      length = Math.min(needed, longest);
+    }
+    return length;
+  };
+  q.ribFadeTop = q.plainTop > 0 ? ribFade(q.ribsTopZ, -1) : 0;
+  q.ribFadeBottom = q.plainBottom > 0 ? ribFade(q.plainBottom, 1) : 0;
   /* Relief of each ring: constant within the ring and trimmed so that, added to the tilt the wall
      already has (and to the headroom the ribs use), it stays under the limit. */
   q.ringAmp = new Float64Array(q.rings);
   if (q.rings > 0) {
-    const sp = q.hb / q.rings, w = q.ringW;
-    const hasRibs = q.ribA !== 0;
-    const twistUse = hasRibs ? (Math.abs(q.ribA) * 0.5 * q.ribs * Math.abs(q.twist)) / (q.ribWf * q.hb) : 0;
-    const rampUse = hasRibs ? (Math.abs(q.ribA) * 1.5) / q.ramp : 0;
+    const ringSpacing = (q.ringsTopZ - q.ringsBottomZ) / q.rings, w = q.ringW;
+    const topFadeTilt = hasRibs && q.ribFadeTop ? (Math.abs(q.ribA) * 1.5) / q.ribFadeTop : 0;
+    const bottomFadeTilt = hasRibs && q.ribFadeBottom ? (Math.abs(q.ribA) * 1.5) / q.ribFadeBottom : 0;
     for (let k = 0; k < q.rings; k++) {
       let A = Math.abs(q.ringA);
       if (q.protect) {
-        const zr = q.zb + (k + 0.5) * sp;
+        const zr = q.ringsBottomZ + (k + 0.5) * ringSpacing;
         const i0 = Math.max(0, Math.floor((zr - w / 2) / dz)), i1 = Math.min(M, Math.ceil((zr + w / 2) / dz));
         let used = 0;
         for (let i = i0; i <= i1; i++) {
           const z = i * dz;
           let u = Math.max(Math.abs(slope[i]), Math.abs(left.slope[i])) + twistUse;
           if ((q.thB && z < q.zb + q.ramp) || (q.thT && z > q.zt - q.ramp)) u += rampUse;
+          if (q.ribFadeTop && z > q.ribsTopZ - q.ribFadeTop) u += topFadeTilt;
+          if (q.ribFadeBottom && z < q.plainBottom + q.ribFadeBottom) u += bottomFadeTilt;
           if (u > used) used = u;
         }
         A = Math.min(A, (Math.max(0, q.tanMax - used) * w) / Math.PI);
@@ -152,6 +266,22 @@ export function derive(p) {
   }
   q.M = M; q.dz = dz; q.base = base; q.slope = slope;
   q.baseL = left.base; q.slopeL = left.slope;
+  /* The shell's inner surface cannot come closer to the axis than SHELL_MIN_RADIUS, so where the
+     body is narrower than a wall plus that, the wall comes out thinner. `shellWallMin` is the
+     thinnest it gets, worked out from the narrowest outer radius. */
+  q.shellWallMin = q.shellWall;
+  if (q.uneven) {
+    const angleCount = segments(q, 360);
+    for (let z = 0; z <= q.H; z += 0.5) {
+      const row = bodyRow(q, z);
+      for (let step = 0; step < angleCount; step++) {
+        const radius = bodyR(q, row, (TAU * step) / angleCount + row.tw);
+        q.shellWallMin = Math.min(q.shellWallMin, radius - SHELL_MIN_RADIUS);
+      }
+    }
+    q.shellWallMin = Math.max(0, q.shellWallMin);
+  }
+  q.shellThin = q.shellWallMin < q.shellWall - 0.01;
   return q;
 }
 
@@ -244,10 +374,10 @@ export function bodyRow(q, z) {
   row.base = q.base[i] * (1 - f) + q.base[i + 1] * f;
   row.baseL = q.asym ? q.baseL[i] * (1 - f) + q.baseL[i + 1] * f : row.base;
   if (z >= q.zb && z <= q.zt) {
-    if (q.rings > 0 && q.ringA !== 0) {
-      const sp = q.hb / q.rings;
-      const u = (z - q.zb) / sp;
-      const d = (u - Math.floor(u) - 0.5) * sp;
+    if (q.rings > 0 && q.ringA !== 0 && z >= q.ringsBottomZ && z <= q.ringsTopZ) {
+      const ringSpacing = (q.ringsTopZ - q.ringsBottomZ) / q.rings;
+      const u = (z - q.ringsBottomZ) / ringSpacing;
+      const d = (u - Math.floor(u) - 0.5) * ringSpacing;
       const w = q.ringW;
       if (Math.abs(d) < w / 2) row.add = q.ringAmp[Math.min(q.rings - 1, Math.floor(u))] * 0.5 * (1 + Math.cos((TAU * d) / w));
     }
@@ -256,11 +386,13 @@ export function bodyRow(q, z) {
     row.tw = z <= q.zb ? 0 : q.twist;
   }
   /* Ribs also run along plain necks; they only fade out towards a threaded neck, which has to
-     stay round. */
+     stay round, under the plain band at the mouth and above the one at the base. */
   if (q.ribA !== 0) {
     const fb = q.thB ? sstep(q.zb, q.zb + q.ramp, z) : 1;
     const ft = q.thT ? sstep(q.zt, q.zt - q.ramp, z) : 1;
-    row.ribAmp = q.ribA * fb * ft * (q.ribProp ? row.base / q.Rmax : 1);
+    const fadeUnderMouth = q.ribFadeTop ? sstep(q.ribsTopZ, q.ribsTopZ - q.ribFadeTop, z) : 1;
+    const fadeOverBase = q.ribFadeBottom ? sstep(q.plainBottom, q.plainBottom + q.ribFadeBottom, z) : 1;
+    row.ribAmp = q.ribA * fb * ft * fadeUnderMouth * fadeOverBase * (q.ribProp ? row.base / q.Rmax : 1);
   }
   if (q.thB && z <= q.Lb) {
     row.th = 1; row.dep = q.depB;
@@ -300,6 +432,20 @@ export function bodyR(q, row, th) {
     r -= row.dep * (1 - row.e + row.e * row.x * (1 - g));
   }
   return r < 1.5 ? 1.5 : r;   // relief never collapses the contour
+}
+
+/* Share of the drop at angle th: 1 on the lowered side, 0 on the other, a cosine in between. */
+const dropShare = (q, th) => (q.dropBack ? 0.5 - 0.5 * Math.cos(th) : 0.5 + 0.5 * Math.cos(th));
+/* Height of the point at height z of the even part, at angle th, once the mouth drops. Everything
+   up to dropFrom stays put, and above it the drop grows linearly up to the rim. */
+export function dropZ(q, z, th) {
+  if (!q.uneven || z <= q.dropFrom) return z;
+  return z - q.drop * dropShare(q, th) * ((z - q.dropFrom) / (q.H - q.dropFrom));
+}
+/* Inverse of dropZ: the height in the even part of a point drawn at height z. */
+export function undropZ(q, z, th) {
+  if (!q.uneven || z <= q.dropFrom) return z;
+  return q.dropFrom + ((z - q.dropFrom) * (q.H - q.dropFrom)) / (q.H - q.dropFrom - q.drop * dropShare(q, th));
 }
 
 /* ---------- caps: a regular solid part, smooth outside, with the female thread only on the inside.
@@ -357,7 +503,7 @@ export function buildCap(q, cap, nT, dzTarget, creases) {
 }
 
 /* ---------- (θ, z) grid meshing ---------- */
-function grid(H, nT, nZ, rowFn, rFn) {
+function grid(H, nT, nZ, rowFn, rFn, heightFn) {
   const pos = new Float32Array(nT * nZ * 3);
   const rr = new Float32Array(nT * nZ);
   const zs = new Float32Array(nZ);
@@ -374,10 +520,10 @@ function grid(H, nT, nZ, rowFn, rFn) {
       rr[k++] = r;
       pos[o++] = r * Math.cos(th);
       pos[o++] = r * Math.sin(th);
-      pos[o++] = z;
+      pos[o++] = heightFn ? heightFn(z, th) : z;
     }
   }
-  return { pos, rr, zs, tws, zone, nT, nZ, H, c0: [0, 0, 0], c1: [0, 0, H] };
+  return { pos, rr, zs, tws, zone, nT, nZ, H, dropped: !!heightFn, c0: [0, 0, 0], c1: [0, 0, heightFn ? (heightFn(H, 0) + heightFn(H, Math.PI)) / 2 : H] };
 }
 /* Segments around: a multiple of the rib count, so every crest lands on a vertex. */
 export function segments(q, target, perRib) {
@@ -387,27 +533,113 @@ export function segments(q, target, perRib) {
 export function buildBody(q, nTarget, dzTarget, perRib) {
   const nT = segments(q, nTarget, perRib);
   const nZ = Math.max(3, Math.ceil(q.H / dzTarget) + 1);
-  return grid(q.H, nT, nZ, (z) => bodyRow(q, z), (row, th) => bodyR(q, row, th));
+  return grid(q.H, nT, nZ, (z) => bodyRow(q, z), (row, th) => bodyR(q, row, th), q.uneven ? (z, th) => dropZ(q, z, th) : null);
+}
+/* Inner surface of the shell. Each inner vertex lies on the ray from the axis at angle th and
+   height Z (as printed), as far out as it can while staying `shellWall` away from every point of
+   the outer surface around it. That holds the wall's thickness along the profile, the rings, the
+   ribs (sharp crests too), the twist and the height the drop squeezes. The outer surface is
+   sampled on a fine grid of rows and angles, each point worked out once and shared by the
+   vertices around it; a wall close to horizontal has no support anyway (see print.js), so the
+   inset stops at SHELL_MAX_INSET walls. */
+const SHELL_MAX_INSET = 4;
+const SHELL_MIN_RADIUS = 0.5;
+function shellInset(q) {
+  const wall = q.shellWall, wallSquared = wall * wall, step = 0.2;
+  const rows = Array.from({ length: Math.ceil(q.H / step) + 1 }, (_, k) => bodyRow(q, Math.min(q.H, k * step)));
+  /* angles a third of a wall apart on the widest part */
+  const angleCount = Math.ceil((3 * TAU * (q.Rmax + Math.abs(q.ribA) + Math.abs(q.ringA))) / wall);
+  const angleStep = TAU / angleCount;
+  const radii = new Float32Array(rows.length * angleCount).fill(NaN);
+  let Z = 0, th = 0, radius = 0;
+  /* tries the outer points at `angle`, on every fine row whose printed height is within a wall of
+     Z: how far out along the ray the vertex can go and stay a wall away from each one */
+  const tryAngle = (angle, cell) => {
+    const along = Math.cos(angle - th), across = Math.sin(angle - th);
+    const first = Math.max(0, Math.floor(undropZ(q, Math.max(0, Z - wall), angle) / step));
+    const last = Math.min(rows.length - 1, Math.ceil(undropZ(q, Math.min(q.H, Z + wall), angle) / step));
+    const squeeze = q.uneven ? (q.drop * dropShare(q, angle)) / (q.H - q.dropFrom) : 0;   // dropZ, worked out once per angle
+    for (let k = first; k <= last; k++) {
+      const z = rows[k].z, gapZ = (z > q.dropFrom ? z - squeeze * (z - q.dropFrom) : z) - Z;
+      if (gapZ * gapZ >= wallSquared) continue;
+      let outer;
+      if (cell < 0) outer = bodyR(q, rows[k], angle);
+      else {
+        const index = k * angleCount + cell;
+        outer = radii[index];
+        if (outer !== outer) outer = radii[index] = bodyR(q, rows[k], angle);   // not worked out yet (NaN)
+      }
+      const sideways = outer * across, offRay = sideways * sideways + gapZ * gapZ;   // distance to the ray, squared
+      if (offRay < wallSquared) radius = Math.min(radius, outer * along - Math.sqrt(wallSquared - offRay));
+    }
+  };
+  /* radius of the inner vertex at angle `angle` and printed height `height`, where the outer
+     radius is R and the ribs are turned by tw */
+  return (R, angle, height, tw) => {
+    th = angle; Z = height; radius = R - wall;
+    const reach = wall / Math.max(R - Math.abs(q.ribA) - Math.abs(q.ringA), wall);   // the angle a wall spans
+    const stride = Math.max(1, Math.floor(wall / (3 * R * angleStep)));   // about a third of a wall apart here
+    const from = Math.floor((th - reach) / angleStep / stride) * stride, to = th + reach;
+    for (let m = from; m * angleStep <= to; m += stride) tryAngle(m * angleStep, ((m % angleCount) + angleCount) % angleCount);
+    /* the crests and the edges of the ribs are where the surface folds, so they are tried exactly */
+    if (q.ribs > 0 && q.ribA !== 0) {
+      const ribStep = TAU / q.ribs;
+      for (const edge of [0, -q.ribWf / 2, q.ribWf / 2]) {
+        for (let k = Math.ceil((th - reach - tw) / ribStep - edge); tw + (k + edge) * ribStep <= to; k++) tryAngle(tw + (k + edge) * ribStep, -1);
+      }
+    }
+    return Math.max(SHELL_MIN_RADIUS, R - SHELL_MAX_INSET * wall, radius);
+  };
+}
+/* Body of an uneven mouth as a shell: the outer surface up to the rim, then the inner one,
+   `shellWall` inside it, back down. With an open base the two meet at the bottom (a loop mesh);
+   with a closed one the inside stops on the floor, `baseT` up. Every layer is then a ring or an
+   open arc of wall, which the slicer prints with normal walls. */
+export function buildShell(q, nTarget, dzTarget, perRib) {
+  const outer = buildBody(q, nTarget, dzTarget, perRib);
+  const { nT, nZ } = outer;
+  const innerFloorZ = q.closed ? Math.min(q.baseT, q.H / 2) : 0;
+  const innerRings = Math.max(2, Math.ceil((q.H - innerFloorZ) / dzTarget) + 1);
+  const pos = new Float32Array(nT * (nZ + innerRings) * 3);
+  pos.set(outer.pos);
+  let cursor = nT * nZ * 3;
+  const innerRadius = shellInset(q);
+  for (let ring = 0; ring < innerRings; ring++) {
+    const z = q.H - ((q.H - innerFloorZ) * ring) / (innerRings - 1);
+    const row = bodyRow(q, z);
+    for (let j = 0; j < nT; j++) {
+      const th = (TAU * j) / nT + row.tw, height = dropZ(q, z, th);
+      const radius = innerRadius(bodyR(q, row, th), th, height, row.tw);
+      pos[cursor++] = radius * Math.cos(th);
+      pos[cursor++] = radius * Math.sin(th);
+      pos[cursor++] = height;
+    }
+  }
+  return { pos, nT, nZ: nZ + innerRings, H: q.H, loop: !q.closed, c0: [0, 0, 0], c1: [0, 0, innerFloorZ] };
 }
 
 /* ---------- measurements: area, maximum radius and wall tilt ---------- */
 export function measure(g, wantAngles) {
-  const { pos, rr, zs, tws, zone, nT, nZ } = g;
+  const { pos, rr, tws, zone, nT, nZ } = g;
   const dth = TAU / nT;
   let rMax = 0, area = 0;
   const zoneMax = [0, 0, 0];
   const ang = wantAngles ? new Float32Array(nT * nZ) : null;
   for (let j = 0; j < nZ; j++) {
     const ja = Math.max(0, j - 1), jb = Math.min(nZ - 1, j + 1);
-    const dzz = zs[jb] - zs[ja];
-    const twp = (tws[jb] - tws[ja]) / dzz;
     for (let i = 0; i < nT; i++) {
       const k = j * nT + i;
       const r = rr[k];
       if (r > rMax) rMax = r;
-      const rth = (rr[j * nT + ((i + 1) % nT)] - rr[j * nT + ((i + nT - 1) % nT)]) / (2 * dth);
-      const rz = (rr[jb * nT + i] - rr[ja * nT + i]) / dzz - rth * twp;
-      const a = Math.atan((r * Math.abs(rz)) / Math.sqrt(r * r + rth * rth));
+      let a;
+      if (g.dropped) a = tiltFromNormal(pos, j * nT + ((i + nT - 1) % nT), j * nT + ((i + 1) % nT), ja * nT + i, jb * nT + i);
+      else {
+        const verticalStep = pos[(jb * nT + i) * 3 + 2] - pos[(ja * nT + i) * 3 + 2];
+        const twp = (tws[jb] - tws[ja]) / verticalStep;
+        const rth = (rr[j * nT + ((i + 1) % nT)] - rr[j * nT + ((i + nT - 1) % nT)]) / (2 * dth);
+        const rz = (rr[jb * nT + i] - rr[ja * nT + i]) / verticalStep - rth * twp;
+        a = Math.atan((r * Math.abs(rz)) / Math.sqrt(r * r + rth * rth));
+      }
       if (ang) ang[k] = a;
       if (a > zoneMax[zone[j]]) zoneMax[zone[j]] = a;
       if (j < nZ - 1) {
@@ -419,6 +651,15 @@ export function measure(g, wantAngles) {
   }
   const deg = zoneMax.map((v) => (v * 180) / Math.PI);
   return { rMax, area, overBody: deg[0], overBot: deg[1], overTop: deg[2], over: Math.max(deg[0], deg[1], deg[2]), ang };
+}
+/* Wall tilt from vertical where the rings are not level (an uneven mouth): the surface normal from
+   the vertices on either side along the ring (previous, next) and up the column (below, above), and
+   the tilt is how far that normal points up or down. */
+function tiltFromNormal(pos, previous, next, below, above) {
+  const along = [0, 1, 2].map((axis) => pos[next * 3 + axis] - pos[previous * 3 + axis]);
+  const up = [0, 1, 2].map((axis) => pos[above * 3 + axis] - pos[below * 3 + axis]);
+  const normal = [along[1] * up[2] - along[2] * up[1], along[2] * up[0] - along[0] * up[2], along[0] * up[1] - along[1] * up[0]];
+  return Math.atan(Math.abs(normal[2]) / Math.hypot(normal[0], normal[1]));
 }
 function triArea(p, a, b, c) {
   const ux = p[b] - p[a], uy = p[b + 1] - p[a + 1], uz = p[b + 2] - p[a + 2];
