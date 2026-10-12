@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 /* Reads a binary STL and checks that it is a closed solid: every edge must appear exactly once in
    each direction. Also returns the enclosed volume.
    Vertices are matched by their exact bit pattern through a small open-addressing hash table, and
@@ -77,35 +79,9 @@ export function capClearance(G, shape, cap) {
   return { minGap, engagement };
 }
 
-/* Numbers that pin down a binary STL: triangle count, enclosed volume, surface area, the bounding
-   box, and per axis the sum of every coordinate, of their squares and of each one weighted by its
-   place in the file (so moving or swapping vertices changes it). Comparing them with a small
-   relative tolerance survives last-bit rounding differences that a byte digest would not. */
-export function stlFingerprint(stl) {
-  const view = new DataView(stl.buffer, stl.byteOffset, stl.byteLength);
-  const triangles = view.getUint32(80, true);
-  const sums = [0, 0, 0], squares = [0, 0, 0], weighted = [0, 0, 0];
-  const low = [Infinity, Infinity, Infinity], high = [-Infinity, -Infinity, -Infinity];
-  let volume = 0, area = 0;
-  for (let triangle = 0; triangle < triangles; triangle++) {
-    const corners = [0, 1, 2].map((corner) => [0, 1, 2].map((axis) => view.getFloat32(84 + triangle * 50 + 12 + corner * 12 + axis * 4, true)));
-    corners.forEach((corner, cornerIndex) => {
-      const weight = ((triangle * 3 + cornerIndex) % 1009) + 1;
-      for (let axis = 0; axis < 3; axis++) {
-        sums[axis] += corner[axis];
-        squares[axis] += corner[axis] * corner[axis];
-        weighted[axis] += weight * corner[axis];
-        low[axis] = Math.min(low[axis], corner[axis]);
-        high[axis] = Math.max(high[axis], corner[axis]);
-      }
-    });
-    const [a, b, c] = corners;
-    volume += (a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0])) / 6;
-    const u = [0, 1, 2].map((axis) => b[axis] - a[axis]), v = [0, 1, 2].map((axis) => c[axis] - a[axis]);
-    area += Math.hypot(u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]) / 2;
-  }
-  return { triangles, volume, area, sums, squares, weighted, low, high };
-}
+/* SHA-256 of a whole binary STL. Two parts are the same only if every byte matches, so a change
+   anywhere in the mesh, even moving or swapping vertices, gives another digest. */
+export const stlDigest = (stl) => createHash('sha256').update(stl).digest('hex');
 
 /* Distance from `point` to the designed outer surface of the body, r(θ, z) with the drop applied,
    found by sampling that surface finely within 1.2 mm of the point. */

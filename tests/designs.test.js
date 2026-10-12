@@ -4,7 +4,7 @@ import * as G from '../src/core/geometry.js';
 import { toSTL } from '../src/core/stl.js';
 import { DEFAULTS, cloneParams } from '../src/core/params.js';
 import { NAME_MAX, mergeLibraries, parseLibrary, removeDesign, serializeLibrary, upsertDesign } from '../src/core/designs.js';
-import { stlFingerprint } from './helpers.js';
+import { stlDigest } from './helpers.js';
 
 const T0 = Date.UTC(2026, 0, 1);
 const HOUR = 3600e3;
@@ -80,9 +80,10 @@ describe('saved designs', () => {
 });
 
 /* `fixtures/saved-designs.json` is a design library saved in the current format, together with the
-   loaded parameters and a fingerprint of every part each design exported, both worked out with the
+   loaded parameters and the SHA-256 of every part each design exported, both worked out with the
    code before the readable-names refactor. Loading it now must give the same parameters and the
-   same parts, so renaming code never breaks a design someone already saved. */
+   same parts, so renaming code never breaks a design someone already saved. A change that alters
+   the exported parts on purpose has to update the digests here. */
 describe('designs saved before the renames', () => {
   const fixture = JSON.parse(readFileSync(new URL('./fixtures/saved-designs.json', import.meta.url), 'utf8'));
   const designs = parseLibrary(fixture.library);
@@ -99,27 +100,16 @@ describe('designs saved before the renames', () => {
     }
   });
 
-  it('export the same body and caps', () => {
+  it('export the same body and caps, byte for byte', () => {
     for (const design of designs) {
       const shape = G.derive(cloneParams(design.params));
-      const parts = { body: stlFingerprint(toSTL(G.buildBody(shape, 180, 0.8), 'body')) };
+      const parts = { body: stlDigest(toSTL(G.buildBody(shape, 180, 0.8), 'body')) };
       for (const which of ['bottom', 'top']) {
         const cap = G.capSpec(shape, which);
-        if (cap) parts[which] = stlFingerprint(toSTL(G.buildCap(shape, cap, 180, 0.25, false), which + ' cap'));
+        if (cap) parts[which] = stlDigest(toSTL(G.buildCap(shape, cap, 180, 0.25, false), which + ' cap'));
       }
-      const expected = fixture.expected[design.name].parts;
-      expect(Object.keys(parts), design.name).toEqual(Object.keys(expected));
-      for (const [part, fingerprint] of Object.entries(parts)) {
-        const label = `${design.name}, ${part}`;
-        expect(fingerprint.triangles, label).toBe(expected[part].triangles);
-        /* equal up to a millionth of the value: only last-bit rounding may differ */
-        const same = (value, wanted, what) => expect(Math.abs(value - wanted), `${label}, ${what}`).toBeLessThanOrEqual(1e-6 * Math.max(1, Math.abs(wanted)));
-        same(fingerprint.volume, expected[part].volume, 'volume');
-        same(fingerprint.area, expected[part].area, 'area');
-        for (const key of ['sums', 'squares', 'weighted', 'low', 'high']) {
-          fingerprint[key].forEach((value, axis) => same(value, expected[part][key][axis], `${key}[${axis}]`));
-        }
-      }
+      expect(parts, design.name).toEqual(fixture.expected[design.name].parts);
     }
   });
+
 });
