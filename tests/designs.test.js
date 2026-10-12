@@ -89,7 +89,14 @@ describe('designs saved before the renames', () => {
 
   it('all load, with the same parameters', () => {
     expect(designs.map((design) => design.name)).toEqual(Object.keys(fixture.expected));
-    for (const design of designs) expect(cloneParams(design.params), design.name).toEqual(fixture.expected[design.name].params);
+    for (const design of designs) {
+      const loaded = cloneParams(design.params), expected = fixture.expected[design.name].params;
+      for (const [key, value] of Object.entries(loaded)) {
+        /* a parameter added after the fixture was made comes in at its default */
+        expect(value, `${design.name}, ${key}`).toEqual(key in expected ? expected[key] : DEFAULTS[key]);
+      }
+      for (const key of Object.keys(expected)) expect(loaded, `${design.name}, ${key}`).toHaveProperty(key);
+    }
   });
 
   it('export the same body and caps', () => {

@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { dropZ, undropZ } from '../core/geometry.js';
 import { useModel } from '../composables/useModel.js';
 import { formatNumber } from '../i18n/index.js';
 import SwitchField from './SwitchField.vue';
@@ -9,9 +10,14 @@ import SwitchField from './SwitchField.vue';
    that gets printed (tilt limit applied) and the dashed line is the one that was drawn. With equal
    sides only the right half has points and the left half mirrors it; with different sides each
    half has its own points (the right one is the front of the part, θ = 0, the left one the back).
-   Points are [heightShare, radiusShare] of the body, as in `pts`. */
+   Points are [heightShare, radiusShare] of the body, as in `pts`. Each half has its own mouth
+   handle: dragging one down lowers the mouth on that side (an uneven mouth, see mouthDrop), and that
+   half is drawn as low as it really is. */
 const { t } = useI18n();
-const { params, model, view, movePoint, canAddPoint, addPoint, addPointInGap, removePoint, reseedPoints, setSidesEqual } = useModel();
+const {
+  params, model, view, movePoint, canAddPoint, addPoint, addPointInGap, removePoint, reseedPoints, smoothProfile, setSidesEqual,
+  mouthDropOf, setMouthDrop, moveMouth,
+} = useModel();
 
 const WIDTH = 320, HEIGHT = 300, PADDING = 18;   // SVG units
 const svg = ref(null);
@@ -20,20 +26,32 @@ let dragged = null;   // position in layout.handles of the handle being dragged
 const twoSides = computed(() => !!(params.ptsL && params.ptsL.length));
 const sidePoints = (side) => (side === 'L' && twoSides.value ? params.ptsL : params.pts) || [];
 
-/* Drawing of the profile in SVG units, and the handles, in order: base, right points, top, then
-   the left points when the sides differ. Each handle knows its side ('R' / 'L') and its index
-   within the side (0 base, count + 1 top). */
+/* Drawing of the profile in SVG units, and the handles, in order: base, right points, right mouth,
+   the left points when the sides differ, and the left mouth. Each handle knows its side ('R' / 'L')
+   and its index within the side (0 base, count + 1 mouth). The two mouths share the diameter; each
+   can be dragged down on its own. */
 const layout = computed(() => {
   const shape = model.value.shape, two = twoSides.value;
   const rightPoints = params.pts || [], leftPoints = two ? params.ptsL : [];
   const scale = Math.min((WIDTH - 2 * PADDING) / (2 * shape.maxRadius), (HEIGHT - 2 * PADDING) / shape.height);   // SVG units per mm
   const cx = WIDTH / 2, floorY = HEIGHT - PADDING - (HEIGHT - 2 * PADDING - shape.height * scale) / 2;
   const toX = (radius) => cx + radius * scale, toY = (z) => floorY - z * scale;
+  /* screen y of a height on each half, as low as that half's mouth really is */
+  const frontY = (z) => toY(dropZ(shape, z, 0)), backY = (z) => toY(dropZ(shape, z, Math.PI));
+  const sideY = (side) => (side === 'L' ? backY : frontY);
   const count = rightPoints.length;
+  const mouthHandle = (side) => {
+    const drop = mouthDropOf(side) && shape.uneven ? shape.drop : 0;
+    return {
+      x: toX((side === 'L' ? -1 : 1) * shape.topRadius), y: sideY(side)(shape.bodyTop), end: true, side, index: sidePoints(side).length + 1,
+      label: t('editor.topLabel', { d: formatNumber(2 * shape.topRadius) }) + ` (${t(side === 'L' ? 'editor.sideLeft' : 'editor.sideRight')})`
+        + (drop ? ' · ' + t('editor.dropLabel', { mm: formatNumber(drop) }) : ''),
+    };
+  };
   const sideName = (side) => (two ? t(side === 'L' ? 'editor.sideLeft' : 'editor.sideRight') : '');
   const pointHandle = (side, direction) => (point, index) => ({
     x: toX(direction * point[1] * shape.maxRadius),
-    y: toY(shape.bodyBottom + point[0] * shape.bodyHeight),
+    y: sideY(side)(shape.bodyBottom + point[0] * shape.bodyHeight),
     end: false, side, index: index + 1,
     label: t('editor.pointLabel', { i: index + 1, u: formatNumber(point[0] * 100), d: formatNumber(2 * point[1] * shape.maxRadius) })
       + (two ? ` (${sideName(side)})` : ''),
@@ -41,8 +59,9 @@ const layout = computed(() => {
   const handles = [
     { x: toX(shape.bottomRadius), y: toY(shape.bodyBottom), end: true, side: 'R', index: 0, label: t('editor.baseLabel', { d: formatNumber(2 * shape.bottomRadius) }) },
     ...rightPoints.map(pointHandle('R', 1)),
-    { x: toX(shape.topRadius), y: toY(shape.bodyTop), end: true, side: 'R', index: count + 1, label: t('editor.topLabel', { d: formatNumber(2 * shape.topRadius) }) },
+    mouthHandle('R'),
     ...leftPoints.map(pointHandle('L', -1)),
+    mouthHandle('L'),
   ];
   /* Outlines, one vertex per millimetre: the printed silhouette and the drawn (wanted) profile. */
   const sampleStride = Math.max(1, Math.round(1 / shape.sampleStep));
@@ -50,18 +69,20 @@ const layout = computed(() => {
   const rightOutline = [], leftOutline = [], wantedOutline = [], wantedLeftOutline = [];
   let clipped = 0;   // most the tilt limit takes off the drawn profile, in mm
   for (let sample = 0; sample <= shape.sampleCount; sample += sampleStride) {
-    const y = toY(sample * shape.sampleStep).toFixed(1);
+    const y = frontY(sample * shape.sampleStep).toFixed(1), yLeft = backY(sample * shape.sampleStep).toFixed(1);
     rightOutline.push(`${toX(shape.radii[sample]).toFixed(1)},${y}`);
-    leftOutline.push(`${toX(-radiiLeft[sample]).toFixed(1)},${y}`);
+    leftOutline.push(`${toX(-radiiLeft[sample]).toFixed(1)},${yLeft}`);
     wantedOutline.push(`${toX(shape.wantedRadii[sample]).toFixed(1)},${y}`);
-    if (two) wantedLeftOutline.push(`${toX(-wantedLeft[sample]).toFixed(1)},${y}`);
+    if (two) wantedLeftOutline.push(`${toX(-wantedLeft[sample]).toFixed(1)},${yLeft}`);
     clipped = Math.max(clipped, shape.wantedRadii[sample] - shape.radii[sample], wantedLeft[sample] - radiiLeft[sample]);
   }
   return {
     cx, axisTop: toY(shape.height) - 6, axisBottom: toY(0) + 6, handles, count, leftCount: leftPoints.length, clipped, sideName,
     silhouette: `M${rightOutline.join('L')}L${leftOutline.reverse().join('L')}Z`,
     wanted: `M${wantedOutline.join('L')}` + (two ? `M${wantedLeftOutline.join('L')}` : ''),
-    toHeightShare: (y) => ((floorY - y) / scale - shape.bodyBottom) / shape.bodyHeight,
+    toHeight: (y) => (floorY - y) / scale,
+    /* undoes frontY / backY (left = true): above its highest point the lowered half is squeezed */
+    toHeightShare: (y, left) => (undropZ(shape, (floorY - y) / scale, left ? Math.PI : 0) - shape.bodyBottom) / shape.bodyHeight,
     toRadius: (x) => Math.abs(x - cx) / scale,
     sideAt: (x) => (two && x < cx ? 'L' : 'R'),
   };
@@ -121,12 +142,14 @@ function onDown(event) {
 function onMove(event) {
   if (dragged === null) return;
   const [x, y] = svgPoint(event), handle = layout.value.handles[dragged];
-  if (handle) movePoint(handle.index, layout.value.toHeightShare(y), layout.value.toRadius(x), handle.side);
+  if (!handle) return;
+  if (handle.end && handle.index > 0) moveMouth(handle.side, layout.value.toHeight(y));
+  movePoint(handle.index, layout.value.toHeightShare(y, handle.side === 'L'), layout.value.toRadius(x), handle.side);
 }
 function onUp() { dragged = null; }
 function onDoubleClick(event) {
   const [x, y] = svgPoint(event), side = layout.value.sideAt(x);
-  select(side, addPoint(layout.value.toHeightShare(y), layout.value.toRadius(x), side));
+  select(side, addPoint(layout.value.toHeightShare(y, x < layout.value.cx), layout.value.toRadius(x), side));
 }
 function onKey(event, position) {
   const shape = model.value.shape, handle = layout.value.handles[position], step = event.shiftKey ? 5 : 1;
@@ -134,9 +157,14 @@ function onKey(event, position) {
   const heightShare = handle.end ? null : points[handle.index - 1][0];
   const radius = handle.end ? (handle.index === 0 ? params.botD / 2 : params.topD / 2) : points[handle.index - 1][1] * shape.maxRadius;
   const outwards = handle.side === 'L' ? -1 : 1;   // on the left half, ArrowLeft moves the wall outwards
-  if (event.key === 'ArrowUp') { if (!handle.end) movePoint(handle.index, heightShare + 0.01 * step, null, handle.side); }
-  else if (event.key === 'ArrowDown') { if (!handle.end) movePoint(handle.index, heightShare - 0.01 * step, null, handle.side); }
-  else if (event.key === 'ArrowRight') movePoint(handle.index, null, radius + 0.5 * step * outwards, handle.side);
+  const isMouth = handle.end && handle.index > 0;
+  if (event.key === 'ArrowUp') {
+    if (!handle.end) movePoint(handle.index, heightShare + 0.01 * step, null, handle.side);
+    else if (isMouth) setMouthDrop(handle.side, mouthDropOf(handle.side) - step);
+  } else if (event.key === 'ArrowDown') {
+    if (!handle.end) movePoint(handle.index, heightShare - 0.01 * step, null, handle.side);
+    else if (isMouth) setMouthDrop(handle.side, Math.max(1, mouthDropOf(handle.side) + step));
+  } else if (event.key === 'ArrowRight') movePoint(handle.index, null, radius + 0.5 * step * outwards, handle.side);
   else if (event.key === 'ArrowLeft') movePoint(handle.index, null, radius - 0.5 * step * outwards, handle.side);
   else if (event.key === 'Delete' || event.key === 'Backspace') { if (!handle.end) select(handle.side, removePoint(handle.index, handle.side)); }
   else if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) onHandleMenu(event, position);
@@ -165,9 +193,9 @@ function visibleSpan(element) {
 /* (x, y) are in SVG units; the menu is placed in CSS pixels inside the editor. */
 async function openMenu(x, y, position, returnFocusTo) {
   const svgBox = svg.value.getBoundingClientRect(), editorBox = wrap.value.getBoundingClientRect();
-  const heightShare = layout.value.toHeightShare(y), radius = layout.value.toRadius(x);
   const handle = position >= 0 ? layout.value.handles[position] : null;
   const side = handle ? handle.side : layout.value.sideAt(x);
+  const heightShare = layout.value.toHeightShare(y, handle ? handle.side === 'L' : x < layout.value.cx), radius = layout.value.toRadius(x);
   const count = sidePoints(side).length;
   const onPoint = !!handle && !handle.end;
   menu.value = {
@@ -328,6 +356,7 @@ function setDiameter(event) {
     <div class="d-flex flex-wrap gap-2">
       <button type="button" class="btn btn-sm btn-outline-secondary" id="pe-add" :disabled="selectedSideCount >= 10" @click="addInGap">{{ t('editor.add') }}</button>
       <button type="button" class="btn btn-sm btn-outline-secondary" id="pe-del" :disabled="selectedIsEnd || selectedSideCount <= 1" @click="removeSelected">{{ t('editor.remove') }}</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="pe-smooth" :title="t('editor.smoothHint')" @click="smoothProfile">{{ t('editor.smooth') }}</button>
       <button type="button" class="btn btn-sm btn-outline-secondary" id="pe-seed" @click="reseedPoints">{{ t('editor.reseed') }}</button>
     </div>
     <p class="form-text mb-0" id="pe-note">{{ note }}</p>

@@ -98,3 +98,19 @@ export function stlFingerprint(stl) {
   }
   return { triangles, volume, sums, low, high };
 }
+
+/* Distance from `point` to the designed outer surface of the body, r(θ, z) with the drop applied,
+   found by sampling that surface finely within 1.2 mm of the point. */
+export function distanceToBody(G, shape, point) {
+  const angle = Math.atan2(point[1], point[0]), radius = Math.hypot(point[0], point[1]);
+  let best = Infinity;
+  for (let up = -1.2; up <= 1.2001; up += 0.04) {
+    for (let around = -1.2; around <= 1.2001; around += 0.04) {
+      const th = angle + around / Math.max(radius, 5), height = point[2] + up;
+      if (height < 0 || height > G.dropZ(shape, shape.height, th)) continue;
+      const surfaceRadius = G.bodyR(shape, G.bodyRow(shape, G.undropZ(shape, height, th)), th);
+      best = Math.min(best, Math.hypot(surfaceRadius * Math.cos(th) - point[0], surfaceRadius * Math.sin(th) - point[1], height - point[2]));
+    }
+  }
+  return best;
+}

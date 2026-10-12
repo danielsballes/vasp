@@ -54,7 +54,7 @@ const summaries = computed(() => {
       : params.twist ? t('summary.reliefTwist', { ...relief(current.ribs, current.ribRelief), twist: formatNumber(params.twist) })
       : t('summary.relief', relief(current.ribs, current.ribRelief)),
     base: t('summary.mouth', { d: formatNumber(2 * current.bottomRadius), state: t(current.closedBase ? 'summary.closed' : current.bottomThread ? 'summary.threaded' : 'summary.open') }),
-    top: t('summary.mouth', { d: formatNumber(2 * current.topRadius), state: t(current.topThread ? 'summary.threaded' : 'summary.plain') }),
+    top: t('summary.mouth', { d: formatNumber(2 * current.topRadius), state: t(current.topThread ? 'summary.threaded' : current.uneven ? 'summary.uneven' : 'summary.plain') }),
     thread: anyThread.value ? t('summary.thread', { pitch: formatNumber(current.pitch, 1) }) : t('summary.noThread'),
     export: t('quality.' + params.quality),
   };
@@ -80,9 +80,17 @@ function neckNote(which) {
   const neckRadius = bottom ? current.bottomRadius : current.topRadius;
   const cap = caps.value[which];
   const inner = formatNumber(Math.max(0, 2 * (neckRadius - current.lineWidth)), 1);   // inner diameter of the neck
+  if (!bottom && current.uneven) {
+    const where = t(current.dropBack ? 'editor.dropBack' : 'editor.dropFront');
+    const text = t(params.topThread ? 'notes.unevenThread' : 'notes.uneven', { drop: formatNumber(current.drop), where, wall: formatNumber(current.shellWall, 2) });
+    const thin = current.shellThin
+      ? ' ' + t('notes.unevenThin', { thin: formatNumber(current.shellWallMin, 2), wall: formatNumber(current.shellWall, 2) })
+      : '';
+    return { warn: params.topThread || current.shellThin, text: text + thin };
+  }
   if (bottom && current.closedBase) {
     const layers = Math.max(1, Math.round(current.baseThickness / current.layerHeight));
-    return { warn: false, text: t('notes.closedBottom', { floor: formatNumber(current.baseThickness, 1), layers }) };
+    return { warn: false, text: t(current.uneven ? 'notes.closedBottomWalls' : 'notes.closedBottom', { floor: formatNumber(current.baseThickness, 1), layers }) };
   }
   if (wanted && !active && neckRadius < 5) {
     return { warn: true, text: t('notes.tooNarrow', { d: formatNumber(2 * neckRadius), inner }) };
@@ -190,13 +198,15 @@ function onReset() { resetParams(); setStatus('exporting.resetDone'); }
       <SwitchField id="botThread" :label="t('fields.thread')" :disabled="shape.closedBase" :model-value="params.botThread" @update:model-value="setThread('bottom', $event)" />
       <RangeField id="botD" :label="t('fields.baseDiameter')" unit="mm" :min="6" :max="200" :step="1" v-model="params.botD" />
       <RangeField id="botL" :label="t('fields.neckLength')" unit="mm" :min="0" :max="40" :step="1" v-model="params.botL" />
+      <RangeField id="patternStart" :label="t('fields.patternStart')" unit="mm" :min="0" :max="60" :step="0.5" :hint="t('hints.patternStart')" v-model="params.patternStart" />
       <p class="form-text mb-0" :class="{ 'text-warn': noteBottom.warn }" id="note-bot">{{ noteBottom.text }}</p>
     </PanelSection>
 
     <PanelSection id="top" :title="t('sections.top')" :summary="summaries.top">
-      <SwitchField id="topThread" :label="t('fields.thread')" :model-value="params.topThread" @update:model-value="setThread('top', $event)" />
+      <SwitchField id="topThread" :label="t('fields.thread')" :disabled="shape.uneven" :model-value="params.topThread" @update:model-value="setThread('top', $event)" />
       <RangeField id="topD" :label="t('fields.mouthDiameter')" unit="mm" :min="6" :max="200" :step="1" v-model="params.topD" />
       <RangeField id="topL" :label="t('fields.neckLength')" unit="mm" :min="0" :max="40" :step="1" v-model="params.topL" />
+      <RangeField id="patternStop" :label="t('fields.patternStop')" unit="mm" :min="0" :max="60" :step="0.5" :hint="t('hints.patternStop')" v-model="params.patternStop" />
       <p class="form-text mb-0" :class="{ 'text-warn': noteTop.warn }" id="note-top">{{ noteTop.text }}</p>
     </PanelSection>
 

@@ -56,7 +56,10 @@ tests/             Unit tests: geometry, saved designs and message files
 
 - **Geometry:** the whole model is a function of radius over angle and height. The preview mesh, the
   STL mesh and the wall-tilt measurement all come from it. Every body layer has a single closed
-  contour, which is what spiral vase mode requires.
+  contour, which is what spiral vase mode requires. The one exception is an uneven mouth (free
+  profile only): the rim drops on one side, so the top layers become open arcs. That body is
+  exported as a shell, a wall two lines thick along its normal, to print with normal walls instead
+  of vase mode; the panel and the notes warn when the body is too narrow for the whole wall.
 - **State:** `useModel()` exposes a reactive parameters object. The model is recomputed at most once
   per frame, even if a slider fires many changes.
 - **Viewer:** drag orbits; the right or middle button, or Shift / Ctrl / Cmd + drag, pans; the wheel
@@ -97,6 +100,8 @@ tests/             Unit tests: geometry, saved designs and message files
 ## What the tests cover
 
 - The body of every preset exports as a closed solid.
+- An uneven mouth exports as a closed shell whose wall keeps its thickness along the normal, and
+  the support map measures the tilt of the dropped surface.
 - Caps are closed solids and their clearance against the neck thread matches the configured value.
 - A cap hole removes exactly its cylinder.
 - Parameter loading validates types and accepts files from the original build.
