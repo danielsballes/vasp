@@ -1,7 +1,7 @@
 import { reactive, shallowRef, computed, watch } from 'vue';
 import * as G from '../core/geometry.js';
 import { DEFAULTS, QUALITY, applyParams, cloneParams, fitToNozzle, presetParams, seedPoints } from '../core/params.js';
-import { PLA, PLATE, lwMaxOf, nozzleOf, supportAt, supportLevel, suggestPrint } from '../core/print.js';
+import { PLA, PLATE, maxLineWidthOf, nozzleOf, supportAt, supportLevel, suggestPrint } from '../core/print.js';
 import { formatNumber, t } from '../i18n/index.js';
 
 /* Single application state: the parameters edited in the panel, the view options and the model
@@ -93,7 +93,7 @@ watch([() => view.mode, () => view.heat, () => view.bodyColor, () => view.capCol
 const hasCaps = computed(() => !!(model.value.caps.bottom || model.value.caps.top));
 const isFree = computed(() => params.profile === 'free' && Array.isArray(params.pts) && params.pts.length > 0);
 const nozzle = computed(() => nozzleOf(params.nozzle));
-const lwMax = computed(() => lwMaxOf(params.nozzle));
+const maxLineWidth = computed(() => maxLineWidthOf(params.nozzle));
 
 /* Readout for the stats bar. The texts follow the interface language. */
 const stats = computed(() => {
@@ -117,7 +117,7 @@ const stats = computed(() => {
     fits: diameter <= Math.min(PLATE.x, PLATE.y) && shape.height <= PLATE.z,
     over, support,
     overText: formatNumber(over) + '°',
-    levelClass: level.cls,
+    levelClass: level.cssClass,
     levelText: t('support.' + level.level),
     overNote: support > 0 ? t('stats.overhangSupported', { where, pct: formatNumber(support) }) : t('stats.overhangNone', { where }),
     grams,
@@ -142,11 +142,11 @@ const advice = computed(() => {
     return { warn: false, fit: null, text: t('advice.fine', { ...now, half: formatNumber(halfLineTilt) }), apply: '' };
   }
   const fit = suggestPrint(over, params.nozzle);
-  const supportWithFit = supportAt(over, fit.lh, fit.lw) * 100;
+  const supportWithFit = supportAt(over, fit.layerHeight, fit.lineWidth) * 100;
   if (supportWithFit <= support + 0.5) {
     return { warn: support < 40, fit: null, text: t('advice.stuck', now), apply: '' };
   }
-  const next = { lh: formatNumber(fit.lh, 2), lw: formatNumber(fit.lw, 2), pct: formatNumber(Math.max(0, supportWithFit)) };
+  const next = { lh: formatNumber(fit.layerHeight, 2), lw: formatNumber(fit.lineWidth, 2), pct: formatNumber(Math.max(0, supportWithFit)) };
   const parts = [
     t(support >= 40 ? 'advice.currentOk' : support > 0 ? 'advice.currentLow' : 'advice.currentNone', now),
     t('advice.better', next),
@@ -177,7 +177,7 @@ function loadDesignParams(source, designName) { replaceParams(cloneParams(source
 function applyFit() {
   const fit = advice.value.fit;
   if (!fit) return;
-  params.lh = fit.lh; params.lw = fit.lw;
+  params.lh = fit.layerHeight; params.lw = fit.lineWidth;
 }
 function setNozzle(diameter) { params.nozzle = diameter; fitToNozzle(params, true); }
 /* The free profile starts as a copy of the current barrel shape. */
@@ -254,7 +254,7 @@ function setSidesEqual(equal) {
 
 export function useModel() {
   return {
-    params, view, session, model, stats, advice, hasCaps, isFree, nozzle, lwMax,
+    params, view, session, model, stats, advice, hasCaps, isFree, nozzle, maxLineWidth,
     applyPreset, resetParams, importParams, snapshotParams, loadDesignParams, applyFit, setNozzle, setProfile, reseedPoints, setBase, setThread,
     movePoint, canAddPoint, addPoint, addPointInGap, removePoint, setSidesEqual,
   };

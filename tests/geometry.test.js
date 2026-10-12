@@ -104,7 +104,7 @@ describe('layer support', () => {
   it('the suggestion for 68° on a 0.4 nozzle leaves at least half a line supported', () => {
     const fit = suggestPrint(68, 0.4);
     expect(fit.ok).toBe(true);
-    expect(supportAt(68, fit.lh, fit.lw)).toBeGreaterThanOrEqual(0.5);
+    expect(supportAt(68, fit.layerHeight, fit.lineWidth)).toBeGreaterThanOrEqual(0.5);
   });
 });
 

@@ -15,7 +15,7 @@ import { useStatus } from './useStatus.js';
 
 const { setStatus } = useStatus();
 const busy = ref(false);
-const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 const claudeDownloads = typeof window !== 'undefined' && window.claude && typeof window.claude.use === 'function'
   ? window.claude.use('downloads').catch(() => null)
@@ -39,13 +39,13 @@ async function saveFile(blob, filename, onConfirm) {
 }
 
 /* Reports a failed download on the status line. */
-function reportSaveError(err) {
-  const code = err && err.code;
+function reportSaveError(error) {
+  const code = error && error.code;
   const key = code === 'declined' ? 'exporting.declined'
     : code === 'rate_limited' ? 'exporting.busy'
     : code === 'too_large' ? 'exporting.tooLarge'
     : 'exporting.failed';
-  if (!code) console.error(err);
+  if (!code) console.error(error);
   setStatus(key, {}, code === 'declined' ? '' : 'bad');
 }
 
@@ -77,8 +77,8 @@ async function exportAll() {
     const size = formatNumber(blob.size / 1e6, 1);
     await saveFile(blob, file, () => setStatus('exporting.confirm', { size }));
     setStatus('exporting.saved', { file, size }, 'ok');
-  } catch (err) {
-    reportSaveError(err);
+  } catch (error) {
+    reportSaveError(error);
   } finally {
     busy.value = false;
   }

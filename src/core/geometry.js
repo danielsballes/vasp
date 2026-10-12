@@ -329,7 +329,7 @@ export function capR(shape, cap, row, th) {
 }
 /* Contour rings: floor, chamfer, smooth outer wall, rim, then down the inner face to the floor.
    With creases=true the rings on sharp edges are duplicated so the preview renders them crisp. */
-export function buildCap(shape, cap, segmentCount, dzTarget, creases) {
+export function buildCap(shape, cap, segmentCount, ringSpacingTarget, creases) {
   const rings = [];
   const constant = (radius) => () => radius;
   const addRing = (z, radiusAt, crease) => {
@@ -339,7 +339,7 @@ export function buildCap(shape, cap, segmentCount, dzTarget, creases) {
   addRing(0, constant(cap.outerRadius - cap.chamfer), true);
   addRing(cap.chamfer, constant(cap.outerRadius), true);
   addRing(cap.height, constant(cap.outerRadius), true);
-  const innerSteps = Math.max(2, Math.ceil(cap.threadLength / dzTarget));
+  const innerSteps = Math.max(2, Math.ceil(cap.threadLength / ringSpacingTarget));
   for (let step = 0; step <= innerSteps; step++) {
     const z = cap.height - (cap.threadLength * step) / innerSteps;
     const row = capRow(shape, cap, z);
@@ -393,25 +393,25 @@ function grid(height, segmentCount, ringCount, rowAt, radiusAt) {
   };
 }
 /* Segments around: a multiple of the rib count, so every crest lands on a vertex. */
-export function segments(shape, target, perRib) {
-  if (shape.ribs > 0 && shape.ribRelief !== 0) return Math.max(shape.ribs * (perRib || 8), Math.round(target / shape.ribs) * shape.ribs);
+export function segments(shape, target, segmentsPerRib) {
+  if (shape.ribs > 0 && shape.ribRelief !== 0) return Math.max(shape.ribs * (segmentsPerRib || 8), Math.round(target / shape.ribs) * shape.ribs);
   return target;
 }
-export function buildBody(shape, segmentTarget, dzTarget, perRib) {
-  const segmentCount = segments(shape, segmentTarget, perRib);
-  const ringCount = Math.max(3, Math.ceil(shape.height / dzTarget) + 1);
+export function buildBody(shape, segmentTarget, ringSpacingTarget, segmentsPerRib) {
+  const segmentCount = segments(shape, segmentTarget, segmentsPerRib);
+  const ringCount = Math.max(3, Math.ceil(shape.height / ringSpacingTarget) + 1);
   return grid(shape.height, segmentCount, ringCount, (z) => bodyRow(shape, z), (row, th) => bodyR(shape, row, th));
 }
 
 /* ---------- measurements: area, maximum radius and wall tilt ---------- */
-/* Wall tilt from vertical at every vertex (in `angles`, in radians, when wantAngles is set) and the
+/* Wall tilt from vertical at every vertex (in `angles`, in radians, when withAngles is set) and the
    steepest one on the body and on each threaded neck, in degrees. */
-export function measure(mesh, wantAngles) {
+export function measure(mesh, withAngles) {
   const { positions, radii, ringHeights, ringTwists, ringZones, segmentCount, ringCount } = mesh;
   const angleStep = TAU / segmentCount;
   let maxRadius = 0, area = 0;
   const steepestByZone = [0, 0, 0];
-  const angles = wantAngles ? new Float32Array(segmentCount * ringCount) : null;
+  const angles = withAngles ? new Float32Array(segmentCount * ringCount) : null;
   for (let ring = 0; ring < ringCount; ring++) {
     const below = Math.max(0, ring - 1), above = Math.min(ringCount - 1, ring + 1);
     const verticalStep = ringHeights[above] - ringHeights[below];

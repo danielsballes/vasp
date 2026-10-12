@@ -44,7 +44,7 @@ const tag = () => (LOCALES.find((language) => language.code === locale.value) ||
 /* Translation and formatting for code outside components. Components use useI18n(). */
 export const t = (key, named) => i18n.global.t(key, named || {});
 export const formatNumber = (value, digits = 0) => formatNumberIn(value, digits, tag());
-export const formatDate = (ms) => formatDateIn(ms, tag());
+export const formatDate = (timestamp) => formatDateIn(timestamp, tag());
 
 export function setLocale(code) {
   if (!known(code)) return;

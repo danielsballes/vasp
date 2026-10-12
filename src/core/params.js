@@ -1,5 +1,5 @@
 import { clamp, cleanPoints, derive } from './geometry.js';
-import { NOZZLES, nozzleOf, lwMaxOf } from './print.js';
+import { NOZZLES, nozzleOf, maxLineWidthOf } from './print.js';
 
 /* Default values: the classic lantern. The keys match the exported parameters file. */
 export const DEFAULTS = {
@@ -68,8 +68,8 @@ export const PRESETS = [
 export function fitToNozzle(params, reset) {
   if (!NOZZLES[params.nozzle]) params.nozzle = 0.4;
   const nozzle = nozzleOf(params.nozzle);
-  params.lh = reset ? nozzle.lhDef : clamp(params.lh, nozzle.lhMin, nozzle.lhMax);
-  params.lw = reset ? nozzle.lwDef : clamp(params.lw, params.nozzle, lwMaxOf(params.nozzle));
+  params.lh = reset ? nozzle.defaultLayerHeight : clamp(params.lh, nozzle.minLayerHeight, nozzle.maxLayerHeight);
+  params.lw = reset ? nozzle.defaultLineWidth : clamp(params.lw, params.nozzle, maxLineWidthOf(params.nozzle));
 }
 
 /* Copies only the known keys of `src` onto `target`, validating each type. Used for the state saved

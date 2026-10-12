@@ -76,3 +76,25 @@ export function capClearance(G, shape, cap) {
   }
   return { minGap, engagement };
 }
+
+/* Numbers that pin down a binary STL: triangle count, enclosed volume, the sum of every
+   coordinate and the bounding box. Two meshes with the same fingerprint are the same part. */
+export function stlFingerprint(stl) {
+  const view = new DataView(stl.buffer, stl.byteOffset, stl.byteLength);
+  const triangles = view.getUint32(80, true);
+  const sums = [0, 0, 0], low = [Infinity, Infinity, Infinity], high = [-Infinity, -Infinity, -Infinity];
+  let volume = 0;
+  for (let triangle = 0; triangle < triangles; triangle++) {
+    const corners = [0, 1, 2].map((corner) => [0, 1, 2].map((axis) => view.getFloat32(84 + triangle * 50 + 12 + corner * 12 + axis * 4, true)));
+    for (const corner of corners) {
+      for (let axis = 0; axis < 3; axis++) {
+        sums[axis] += corner[axis];
+        low[axis] = Math.min(low[axis], corner[axis]);
+        high[axis] = Math.max(high[axis], corner[axis]);
+      }
+    }
+    const [a, b, c] = corners;
+    volume += (a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0])) / 6;
+  }
+  return { triangles, volume, sums, low, high };
+}

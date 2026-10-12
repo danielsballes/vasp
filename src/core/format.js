@@ -4,6 +4,6 @@ export const formatNumberIn = (value, digits = 0, tag = 'es-CO') => (
   Number(value).toLocaleString(tag, { minimumFractionDigits: digits, maximumFractionDigits: digits })
 );
 
-export const formatDateIn = (ms, tag = 'es-CO') => (
-  new Date(ms).toLocaleString(tag, { dateStyle: 'medium', timeStyle: 'short' })
+export const formatDateIn = (timestamp, tag = 'es-CO') => (
+  new Date(timestamp).toLocaleString(tag, { dateStyle: 'medium', timeStyle: 'short' })
 );

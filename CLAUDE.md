@@ -45,8 +45,10 @@ Run `pnpm lint` and `pnpm test` before every commit. Both must pass.
   for variables, parameters and properties (`shape.bodyBottom`, `segmentCount`, `heightShare`),
   never single letters or abbreviations. Allowed exceptions: short loop counters (`i`, `j`),
   coordinates (`x`, `y`, `z`), `th` for the angle θ and `t` for the translator. `params` are the
-  values the user edits (their keys are the parameters-file format and stay as they are) and
-  `shape` is what `derive()` works out from them.
+  values the user edits (their keys are the parameters-file format and stay as they are, and so do
+  the `#p-<param>` field ids built from them) and `shape` is what `derive()` works out from them.
+  Message keys and placeholders (`fields.lh`, `{pct}`, `{d}`) belong to the message files, where
+  they stay short so the text reads well; they are not code identifiers.
 - **Naming:** the product is Vasp everywhere — storage keys (`vasp-v1`, `vasp-designs-v1`,
   `vasp-locale`), the design backup `kind` (`vasp-designs`), exported files and the notes. The
   project's former name must not come back.

@@ -95,8 +95,8 @@ async function backupDesigns() {
   try {
     await saveFile(blob, file);
     setStatus('designs.backedUp', { file }, 'ok');
-  } catch (err) {
-    reportSaveError(err);
+  } catch (error) {
+    reportSaveError(error);
   }
 }
 

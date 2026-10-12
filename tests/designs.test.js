@@ -1,6 +1,10 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DEFAULTS } from '../src/core/params.js';
+import * as G from '../src/core/geometry.js';
+import { toSTL } from '../src/core/stl.js';
+import { DEFAULTS, cloneParams } from '../src/core/params.js';
 import { NAME_MAX, mergeLibraries, parseLibrary, removeDesign, serializeLibrary, upsertDesign } from '../src/core/designs.js';
+import { stlFingerprint } from './helpers.js';
 
 const T0 = Date.UTC(2026, 0, 1);
 const HOUR = 3600e3;
@@ -72,5 +76,40 @@ describe('saved designs', () => {
     expect(byName.Stale.id).toBe(current.find((design) => design.name === 'Stale').id);
     expect(Object.keys(byName).sort()).toEqual(['Kept', 'New', 'Stale']);
     expect(mergeLibraries(list, backup).changed).toBe(0);   // restoring twice changes nothing
+  });
+});
+
+/* `fixtures/saved-designs.json` is a design library saved in the current format, together with the
+   loaded parameters and a fingerprint of every part each design exported, both worked out with the
+   code before the readable-names refactor. Loading it now must give the same parameters and the
+   same parts, so renaming code never breaks a design someone already saved. */
+describe('designs saved before the renames', () => {
+  const fixture = JSON.parse(readFileSync(new URL('./fixtures/saved-designs.json', import.meta.url), 'utf8'));
+  const designs = parseLibrary(fixture.library);
+
+  it('all load, with the same parameters', () => {
+    expect(designs.map((design) => design.name)).toEqual(Object.keys(fixture.expected));
+    for (const design of designs) expect(cloneParams(design.params), design.name).toEqual(fixture.expected[design.name].params);
+  });
+
+  it('export the same body and caps', () => {
+    for (const design of designs) {
+      const shape = G.derive(cloneParams(design.params));
+      const parts = { body: stlFingerprint(toSTL(G.buildBody(shape, 180, 0.8), 'body')) };
+      for (const which of ['bottom', 'top']) {
+        const cap = G.capSpec(shape, which);
+        if (cap) parts[which] = stlFingerprint(toSTL(G.buildCap(shape, cap, 180, 0.25, false), which + ' cap'));
+      }
+      const expected = fixture.expected[design.name].parts;
+      expect(Object.keys(parts), design.name).toEqual(Object.keys(expected));
+      for (const [part, fingerprint] of Object.entries(parts)) {
+        const label = `${design.name}, ${part}`;
+        expect(fingerprint.triangles, label).toBe(expected[part].triangles);
+        expect(fingerprint.volume, label).toBeCloseTo(expected[part].volume, 3);
+        for (const key of ['sums', 'low', 'high']) {
+          fingerprint[key].forEach((value, axis) => expect(value, `${label}, ${key}[${axis}]`).toBeCloseTo(expected[part][key][axis], 3));
+        }
+      }
+    }
   });
 });

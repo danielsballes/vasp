@@ -20,7 +20,7 @@ import DesignsPanel from './DesignsPanel.vue';
 /* Parameter panel: every section of the right-hand side. */
 const { t } = useI18n();
 const {
-  params, model, stats, isFree, nozzle, lwMax,
+  params, model, stats, isFree, nozzle, maxLineWidth,
   applyPreset, resetParams, setNozzle, setProfile, setBase, setThread,
 } = useModel();
 const { busy, exportAll } = useExport();
@@ -60,13 +60,13 @@ const summaries = computed(() => {
   };
 });
 
-const lhHint = computed(() => t('hints.lh', {
+const layerHeightHint = computed(() => t('hints.lh', {
   nozzle: formatNumber(params.nozzle, 1),
-  min: formatNumber(nozzle.value.lhMin, 2),
-  max: formatNumber(nozzle.value.lhMax, 2),
+  min: formatNumber(nozzle.value.minLayerHeight, 2),
+  max: formatNumber(nozzle.value.maxLayerHeight, 2),
   profiles: nozzle.value.profiles.map((height) => formatNumber(height, 2)).join(' · '),
 }));
-const lwHint = computed(() => t('hints.lw', { def: formatNumber(nozzle.value.lwDef, 2), max: formatNumber(lwMax.value, 2) }));
+const lineWidthHint = computed(() => t('hints.lw', { def: formatNumber(nozzle.value.defaultLineWidth, 2), max: formatNumber(maxLineWidth.value, 2) }));
 const shoulderHint = computed(() => (shape.value.wantedTilt > shape.value.maxTilt + 0.5
   ? t('hints.shoulderClipped', { want: formatNumber(shape.value.wantedTilt), limit: formatNumber(shape.value.maxTilt) })
   : t('hints.shoulderFree', { want: formatNumber(shape.value.wantedTilt) })));
@@ -148,8 +148,8 @@ function onReset() { resetParams(); setStatus('exporting.resetDone'); }
 
     <PanelSection id="printing" :title="t('sections.printing')" :summary="summaries.printing">
       <SegField name="nozzle" :label="t('fields.nozzle')" :options="nozzleOptions" :model-value="params.nozzle" @update:model-value="setNozzle" />
-      <RangeField id="lh" :label="t('fields.lh')" unit="mm" :min="nozzle.lhMin" :max="nozzle.lhMax" :step="0.02" :hint="lhHint" v-model="params.lh" />
-      <RangeField id="lw" :label="t('fields.lw')" unit="mm" :min="params.nozzle" :max="lwMax" :step="0.02" :hint="lwHint" v-model="params.lw" />
+      <RangeField id="lh" :label="t('fields.lh')" unit="mm" :min="nozzle.minLayerHeight" :max="nozzle.maxLayerHeight" :step="0.02" :hint="layerHeightHint" v-model="params.lh" />
+      <RangeField id="lw" :label="t('fields.lw')" unit="mm" :min="params.nozzle" :max="maxLineWidth" :step="0.02" :hint="lineWidthHint" v-model="params.lw" />
       <SupportAdvice />
       <SwitchField id="protect" :label="t('fields.protect')" v-model="params.protect" />
     </PanelSection>
