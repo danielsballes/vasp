@@ -89,13 +89,16 @@ export function smoothPoints(points, baseRadius, mouthRadius, sigma = 0.06) {
     return weightedSum / totalWeight;
   });
 
-  /* Stretch what sticks out of the line between the ends so the widest radius stays the same. */
+  /* Stretch what sticks out of the line between the ends so the widest radius stays the same. When
+     an end is already the widest, there is no bulge to keep: the stretch would only blow up what
+     the blur left near the line. */
   const endLine = (sample) => baseRadius + ((mouthRadius - baseRadius) * sample) / samples;
   const bulge = (sample) => blurred[sample] - endLine(sample);
   let widest = 0;
   for (let sample = 1; sample < samples; sample++) if (bulge(sample) > bulge(widest)) widest = sample;
   const widestBefore = Math.max(...radii) - endLine(widest);
-  const stretch = bulge(widest) > 1e-6 ? Math.max(1, widestBefore / bulge(widest)) : 1;
+  const endIsWidest = Math.max(...radii) <= Math.max(baseRadius, mouthRadius) + 1e-9;
+  const stretch = !endIsWidest && bulge(widest) > 1e-6 ? Math.max(1, widestBefore / bulge(widest)) : 1;
 
   return points.map(([height]) => {
     const position = height * samples, below = Math.floor(position), above = Math.min(samples, below + 1);
@@ -182,9 +185,6 @@ export function derive(p) {
   q.ribWf = clamp((+p.ribWidth || 30) / 100, 0.05, 1);
   q.twist = q.ribs > 0 && q.ribA !== 0 ? rad(+p.twist || 0) : 0;
   q.ramp = clamp(q.hb * 0.18, 4, 25);
-  /* fades three times as long as the relief keep the extra tilt under ~27° */
-  q.ribFadeTop = q.plainTop > 0 ? clamp(3 * Math.abs(q.ribA), 3, q.ramp) : 0;
-  q.ribFadeBottom = q.plainBottom > 0 ? clamp(3 * Math.abs(q.ribA), 3, q.ramp) : 0;
 
   /* Base profile: a superelliptic barrel or a free curve through points, limited to the maximum
      wall tilt starting from the radius of each mouth. With `ptsL`, the left side (θ = π) gets its
@@ -198,14 +198,48 @@ export function derive(p) {
   q.want = right.want; q.wantL = left.want;   // requested profiles, before the tilt limit is applied
   q.wantDeg = Math.max(right.wantDeg, left.wantDeg);
   const base = right.base, slope = right.slope;
+  const hasRibs = q.ribA !== 0;
+  const twistUse = hasRibs ? (Math.abs(q.ribA) * 0.5 * q.ribs * Math.abs(q.twist)) / (q.ribWf * q.hb) : 0;
+  const rampUse = hasRibs ? (Math.abs(q.ribA) * 1.5) / q.ramp : 0;
+  /* Length of the rib fades at the plain bands. A fade three times as long as the relief adds up to
+     ~27° of tilt; with `protect` on, it grows (up to half the patterned stretch) until that extra
+     tilt, on top of the wall's own, stays under tanMax. */
+  const ribFade = (bandEdge, direction) => {
+    const shortest = clamp(3 * Math.abs(q.ribA), 3, q.ramp);
+    if (!q.protect || !hasRibs) return shortest;
+    const longest = Math.max(shortest, (q.ribsTopZ - q.plainBottom) / 2);
+    /* steepest the wall already is over a fade of this length */
+    const usedOver = (length) => {
+      const first = Math.max(0, Math.floor(Math.min(bandEdge, bandEdge + direction * length) / dz));
+      const last = Math.min(M, Math.ceil(Math.max(bandEdge, bandEdge + direction * length) / dz));
+      let used = 0;
+      for (let i = first; i <= last; i++) {
+        const z = i * dz;
+        const nearThread = (q.thB && z < q.zb + q.ramp) || (q.thT && z > q.zt - q.ramp);   // the ribs also fade there
+        used = Math.max(used, Math.max(Math.abs(slope[i]), Math.abs(left.slope[i])) + (nearThread ? rampUse : 0));
+      }
+      return used + twistUse;
+    };
+    /* A longer fade reaches further into the wall, where it may be steeper: grow it until it fits.
+       Where the wall (with the twist) already uses all the headroom, no length helps, so the fade
+       stays short and the support map shows that stretch. */
+    let length = shortest;
+    for (let pass = 0; pass < 8; pass++) {
+      const headroom = q.tanMax - usedOver(length);
+      if (headroom <= 0) return shortest;
+      const needed = (1.5 * Math.abs(q.ribA)) / headroom;
+      if (needed <= length + 0.01 || length >= longest) break;
+      length = Math.min(needed, longest);
+    }
+    return length;
+  };
+  q.ribFadeTop = q.plainTop > 0 ? ribFade(q.ribsTopZ, -1) : 0;
+  q.ribFadeBottom = q.plainBottom > 0 ? ribFade(q.plainBottom, 1) : 0;
   /* Relief of each ring: constant within the ring and trimmed so that, added to the tilt the wall
      already has (and to the headroom the ribs use), it stays under the limit. */
   q.ringAmp = new Float64Array(q.rings);
   if (q.rings > 0) {
     const ringSpacing = (q.ringsTopZ - q.ringsBottomZ) / q.rings, w = q.ringW;
-    const hasRibs = q.ribA !== 0;
-    const twistUse = hasRibs ? (Math.abs(q.ribA) * 0.5 * q.ribs * Math.abs(q.twist)) / (q.ribWf * q.hb) : 0;
-    const rampUse = hasRibs ? (Math.abs(q.ribA) * 1.5) / q.ramp : 0;
     const topFadeTilt = hasRibs && q.ribFadeTop ? (Math.abs(q.ribA) * 1.5) / q.ribFadeTop : 0;
     const bottomFadeTilt = hasRibs && q.ribFadeBottom ? (Math.abs(q.ribA) * 1.5) / q.ribFadeBottom : 0;
     for (let k = 0; k < q.rings; k++) {
@@ -229,6 +263,22 @@ export function derive(p) {
   }
   q.M = M; q.dz = dz; q.base = base; q.slope = slope;
   q.baseL = left.base; q.slopeL = left.slope;
+  /* The shell's inner surface cannot come closer to the axis than SHELL_MIN_RADIUS, so where the
+     body is narrower than a wall plus that, the wall comes out thinner. `shellWallMin` is the
+     thinnest it gets, worked out from the narrowest outer radius. */
+  q.shellWallMin = q.shellWall;
+  if (q.uneven) {
+    const angleCount = segments(q, 360);
+    for (let z = 0; z <= q.H; z += 0.5) {
+      const row = bodyRow(q, z);
+      for (let step = 0; step < angleCount; step++) {
+        const radius = bodyR(q, row, (TAU * step) / angleCount + row.tw);
+        q.shellWallMin = Math.min(q.shellWallMin, radius - SHELL_MIN_RADIUS);
+      }
+    }
+    q.shellWallMin = Math.max(0, q.shellWallMin);
+  }
+  q.shellThin = q.shellWallMin < q.shellWall - 0.01;
   return q;
 }
 
@@ -450,6 +500,7 @@ export function buildBody(q, nTarget, dzTarget, perRib) {
    vertices around it; a wall close to horizontal has no support anyway (see print.js), so the
    inset stops at SHELL_MAX_INSET walls. */
 const SHELL_MAX_INSET = 4;
+const SHELL_MIN_RADIUS = 0.5;
 function shellInset(q) {
   const wall = q.shellWall, wallSquared = wall * wall, step = 0.2;
   const rows = Array.from({ length: Math.ceil(q.H / step) + 1 }, (_, k) => bodyRow(q, Math.min(q.H, k * step)));
@@ -494,7 +545,7 @@ function shellInset(q) {
         for (let k = Math.ceil((th - reach - tw) / ribStep - edge); tw + (k + edge) * ribStep <= to; k++) tryAngle(tw + (k + edge) * ribStep, -1);
       }
     }
-    return Math.max(0.5, R - SHELL_MAX_INSET * wall, radius);
+    return Math.max(SHELL_MIN_RADIUS, R - SHELL_MAX_INSET * wall, radius);
   };
 }
 /* Body of an uneven mouth as a shell: the outer surface up to the rim, then the inner one,

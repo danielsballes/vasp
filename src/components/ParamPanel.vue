@@ -80,7 +80,9 @@ function neckNote(which) {
   const cap = caps.value[which];
   const inner = nf(Math.max(0, 2 * (R - Q.lw)), 1);
   if (!bottom && Q.uneven) {
-    return { warn: params.topThread, text: t(params.topThread ? 'notes.unevenThread' : 'notes.uneven', { drop: nf(Q.drop), where: t(Q.dropBack ? 'editor.dropBack' : 'editor.dropFront'), wall: nf(Q.shellWall, 2) }) };
+    const text = t(params.topThread ? 'notes.unevenThread' : 'notes.uneven', { drop: nf(Q.drop), where: t(Q.dropBack ? 'editor.dropBack' : 'editor.dropFront'), wall: nf(Q.shellWall, 2) });
+    const thin = Q.shellThin ? ' ' + t('notes.unevenThin', { thin: nf(Q.shellWallMin, 2), wall: nf(Q.shellWall, 2) }) : '';
+    return { warn: params.topThread || Q.shellThin, text: text + thin };
   }
   if (bottom && Q.closed) {
     return { warn: false, text: t(Q.uneven ? 'notes.closedBottomWalls' : 'notes.closedBottom', { floor: nf(Q.baseT, 1), layers: Math.max(1, Math.round(Q.baseT / Q.lh)) }) };

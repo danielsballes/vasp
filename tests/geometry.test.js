@@ -282,6 +282,25 @@ describe('uneven mouth', () => {
     expect((worst * 180) / Math.PI).toBeLessThan(0.5);   // the rows before the drop are 1° off here
   });
 
+  it('tells when the body is too narrow for the whole shell wall', () => {
+    expect(G.derive({ ...free, mouthDrop: 25 }).shellThin).toBe(false);
+    const narrow = G.derive({ ...free, mouthDrop: 20, nozzle: 0.8, lw: 0.82, lh: 0.4, topD: 6, ribRelief: -3 });
+    expect(narrow.shellThin).toBe(true);
+    expect(narrow.shellWallMin).toBeLessThan(narrow.shellWall);
+    /* the shell is no thicker than that anywhere: its inner surface stops 0.5 mm from the axis */
+    const shell = G.buildShell(narrow, 180, 0.8), outerRings = G.buildBody(narrow, 180, 0.8).nZ;
+    let thinnest = Infinity;
+    for (let ring = outerRings; ring < shell.nZ; ring++) {
+      for (let segment = 0; segment < shell.nT; segment++) {
+        const k = (ring * shell.nT + segment) * 3, inner = [shell.pos[k], shell.pos[k + 1], shell.pos[k + 2]];
+        if (Math.hypot(inner[0], inner[1]) > 0.5 + 1e-3) continue;
+        const angle = Math.atan2(inner[1], inner[0]);
+        thinnest = Math.min(thinnest, G.bodyR(narrow, G.bodyRow(narrow, G.undropZ(narrow, inner[2], angle)), angle) - 0.5);
+      }
+    }
+    expect(thinnest).toBeGreaterThan(narrow.shellWallMin - 0.05);
+  });
+
   it('loads mouthDrop from a file and limits it to the body', () => {
     expect(applyParams({ ...DEFAULTS }, { mouthDrop: -25 }).mouthDrop).toBe(-25);
     const shape = G.derive({ ...free, mouthDrop: 999 });
@@ -326,6 +345,12 @@ describe('smoothing the free profile', () => {
       waist = points[1][1];
       expect(widestRadius(points)).toBeGreaterThan(0.95);   // the curve keeps its widest radius; a point may sit just off it
     }
+  });
+
+  it('leaves a near-straight profile alone when an end is already the widest', () => {
+    /* base 0.094, mouth 0.796: the mouth is the widest, so there is no bulge to keep */
+    const [[, radius]] = G.smoothPoints([[0.0366, 0.1214]], 0.094, 0.796);
+    expect(Math.abs(radius - 0.1214)).toBeLessThan(0.02);   // it used to jump to 0.46
   });
 
   it('barely changes a profile that is already smooth', () => {
@@ -390,6 +415,21 @@ describe('plain bands without rings or ribs', () => {
     expect(Math.abs(ringReliefAt(shape, shape.ringsTopZ - ringSpacing / 2))).toBeGreaterThan(0.1);   // the highest ring
     expect(inspectSTL(toSTL(G.buildBody(shape, 180, 0.8), 'body')).openEdges).toBe(0);
     expect(G.measure(G.buildBody(shape, 192, 0.5, 6), false).overBody).toBeLessThanOrEqual(shape.limit + 5.5);
+  });
+
+  it('the rib fades stay within the tilt limit: they grow longer where the wall is already tilted', () => {
+    /* the twisted vase has steep walls and deep ribs; a 10 mm band at each end */
+    const twisted = { ...presetParams(PRESETS.findIndex((preset) => preset.id === 'twisted'), DEFAULTS), patternStart: 10, patternStop: 10 };
+    const shape = G.derive(twisted);
+    expect(G.measure(G.buildBody(shape, 360, 0.25), false).overBody).toBeLessThanOrEqual(shape.limit + 5.5);
+    /* without the easing the fades keep their short length and the base fade overshoots */
+    const eased = G.derive({ ...twisted, protect: false });
+    expect(eased.ribFadeBottom).toBeLessThan(shape.ribFadeBottom);
+    expect(G.measure(G.buildBody(eased, 360, 0.25), false).overBody).toBeGreaterThan(eased.limit + 5.5);
+    /* a gentle wall keeps them short */
+    const classic = G.derive({ ...DEFAULTS, patternStart: 10, patternStop: 10 });
+    expect(classic.ribFadeTop).toBe(3);
+    expect(classic.ribFadeBottom).toBe(3);
   });
 
   it('both bands together leave room for the pattern', () => {

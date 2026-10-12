@@ -21,6 +21,7 @@ export function orcaLines({ p, q, m, caps }, { t, nf }) {
       printer,
       [t('orca.noVaseTitle'), t('orca.noVase', { drop: nf(q.drop), where: t(q.dropBack ? 'editor.dropBack' : 'editor.dropFront'), wall: nf(q.shellWall, 2) })],
       [t('orca.wallsTitle'), t('orca.walls', { lw: nf(q.lw, 2) })],
+      ...(q.shellThin ? [[t('orca.thinWallTitle'), t('orca.thinWall', { thin: nf(q.shellWallMin, 2), wall: nf(q.shellWall, 2) })]] : []),
       base,
       [t('orca.seamTitle'), t('orca.seam')],
     ]

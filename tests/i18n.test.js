@@ -122,6 +122,12 @@ describe('printing notes', () => {
       lines: ['printerTitle', 'noVaseTitle', 'wallsTitle', 'baseTitle', 'seamTitle'],
       uneven: true,
     },
+    'uneven mouth too narrow for the whole wall': {
+      /* 0.8 mm nozzle, a 6 mm mouth and 3 mm grooves: the shell cannot keep its 1.64 mm wall */
+      params: { ...free, mouthDrop: 20, nozzle: 0.8, lw: 0.82, lh: 0.4, topD: 6, ribRelief: -3 },
+      lines: ['printerTitle', 'noVaseTitle', 'wallsTitle', 'thinWallTitle', 'baseTitle', 'seamTitle', 'brimTitle', 'capsTitle'],
+      uneven: true,
+    },
   };
   for (const [code, messages] of Object.entries(LOCALES)) {
     for (const [name, variant] of Object.entries(variants)) {
@@ -145,6 +151,7 @@ describe('printing notes', () => {
         }
         const texts = lines.map(([, text]) => text);
         for (const key of variant.texts || []) expect(texts).toContain(tr.t(key, {}));
+        if (q.shellThin) expect(texts).toContain(tr.t('orca.thinWall', { thin: tr.nf(q.shellWallMin, 2), wall: tr.nf(q.shellWall, 2) }));
         if (variant.uneven && q.closed) {
           const layers = Math.max(1, Math.round(q.baseT / q.lh));
           expect(texts).toContain(tr.t('orca.baseClosedWalls', { layers, floor: tr.nf(q.baseT, 1) }));
