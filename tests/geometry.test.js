@@ -178,6 +178,55 @@ describe('two-sided profile', () => {
   });
 });
 
+describe('transition into the mouth', () => {
+  /* the gourd with a straight neck and smooth segments: its shoulder meets the neck in a short turn */
+  const necked = { ...presetParams(GOURD, DEFAULTS), topL: 30, shoulder: 80, curve: 'smooth' };
+  const tiltAt = (shape, height) => (Math.atan(Math.abs(shape.slopes[Math.round(height / shape.sampleStep)])) * 180) / Math.PI;
+
+  it('0 leaves the part as it was', () => {
+    const before = G.buildBody(G.derive(necked), 180, 0.8);
+    const withZero = G.buildBody(G.derive({ ...necked, neckBlend: 0 }), 180, 0.8);
+    expect(Array.from(withZero.positions)).toEqual(Array.from(before.positions));
+  });
+
+  it('reaches the neck upright through a flare, and leaves the body further down as it was', () => {
+    const plain = G.derive(necked), blended = G.derive({ ...necked, neckBlend: 40 });
+    const neckStart = blended.bodyTop;
+    expect(tiltAt(plain, neckStart - 5)).toBeGreaterThan(10);   // without it the wall still leans 5 mm under the neck
+    expect(tiltAt(blended, neckStart - 1)).toBeLessThan(5);
+    for (let height = neckStart - 18; height < neckStart - 1; height += 1) {
+      expect(tiltAt(blended, height + 1)).toBeLessThanOrEqual(tiltAt(blended, height) + 0.5);   // the tilt only eases off
+    }
+    /* below the flare and the rounding of its corner the body is untouched */
+    const untouchedUpTo = Math.round((neckStart - 40 - 35) / blended.sampleStep);
+    for (let sample = 0; sample <= untouchedUpTo; sample++) expect(blended.radii[sample]).toBeCloseTo(plain.radii[sample], 9);
+    expect(blended.radii[Math.round(neckStart / blended.sampleStep)]).toBeCloseTo(blended.topRadius, 9);
+  });
+
+  it('stays within the tilt limit and exports as a closed solid', () => {
+    const shape = G.derive({ ...necked, shoulder: 45, neckBlend: 60 });
+    for (const slope of shape.slopes) expect(Math.abs(slope)).toBeLessThanOrEqual(shape.maxTiltTan + 1e-9);
+    const info = inspectSTL(toSTL(G.buildBody(shape, 180, 0.8), 'body'));
+    expect(info.openEdges).toBe(0);
+    expect(info.volume).toBeGreaterThan(0);
+  });
+
+  it('counts as part of the requested profile, so the editor and the shoulder hint do not report it as a trim', () => {
+    const trimmed = (shape) => Math.max(...shape.wantedRadii.map((radius, sample) => radius - shape.radii[sample]));
+    const plain = G.derive(necked), blended = G.derive({ ...necked, neckBlend: 40 });
+    expect(trimmed(blended)).toBeLessThan(trimmed(plain) + 0.2);
+    /* the rounded corner joins the body without a step, so the requested tilt does not jump */
+    expect(blended.wantedTilt).toBeLessThanOrEqual(plain.wantedTilt + 1);
+  });
+
+  it('is limited to 80 mm and to 60 % of the body, and tells the panel that limit', () => {
+    expect(G.derive({ ...necked, neckBlend: 999 }).neckBlend).toBe(80);
+    const short = G.derive({ ...necked, H: 60, neckBlend: 80 });
+    expect(short.neckBlendMax).toBeCloseTo(0.6 * short.bodyHeight, 9);
+    expect(short.neckBlend).toBe(short.neckBlendMax);
+  });
+});
+
 describe('uneven mouth', () => {
   const heightAt = (mesh, ring, segment) => mesh.positions[(ring * mesh.segmentCount + segment) * 3 + 2];
   // the classic lantern drawn with the free profile, so the mouth can drop

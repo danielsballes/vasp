@@ -99,6 +99,7 @@ export default {
     designs: 'guardados: {n}',
   },
   fields: {
+    neckBlend: 'Transición hacia la boca',
     patternStop: 'Borde liso bajo la boca',
     patternStart: 'Borde liso sobre la base',
     withUnit: '{label} en {unit}',
@@ -144,6 +145,7 @@ export default {
     base: { open: 'Abierto', closed: 'Cerrado' },
   },
   hints: {
+    neckBlend: 'Rehace este tramo del cuerpo bajo la boca como una curva que llega recta al cuello, sin quiebre. En 0 la forma queda como está.',
     patternStop: 'Los anillos y los nervios terminan esta distancia antes del borde de la boca. En 0 llegan hasta arriba.',
     patternStart: 'Los anillos y los nervios empiezan esta distancia por encima de la base. En 0 arrancan desde abajo.',
     lh: 'Con boquilla de {nozzle} mm la Qidi Q2 admite de {min} a {max} mm. Perfiles de Orca: {profiles}.',

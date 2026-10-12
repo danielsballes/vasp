@@ -86,6 +86,10 @@ watch(model, (current) => {
     const max = Math.max(2, Math.floor(2 * cap.spec.holeMax));
     if (params[diameterKey] > max) params[diameterKey] = max;
   }
+  /* the transition into the mouth follows the body (a shorter body shortens it too), and a value
+     from a file that is negative goes to 0, as derive() applies it */
+  const blend = G.clamp(+params.neckBlend || 0, 0, Math.max(0, Math.floor(current.shape.neckBlendMax)));
+  if (params.neckBlend !== blend) params.neckBlend = blend;
 }, { immediate: true });
 
 watch([() => view.mode, () => view.heat, () => view.bodyColor, () => view.capColor, () => session.designName], save);

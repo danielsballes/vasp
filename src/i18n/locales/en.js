@@ -99,6 +99,7 @@ export default {
     designs: 'saved: {n}',
   },
   fields: {
+    neckBlend: 'Transition into the mouth',
     patternStop: 'Plain band under the mouth',
     patternStart: 'Plain band above the base',
     withUnit: '{label} in {unit}',
@@ -144,6 +145,7 @@ export default {
     base: { open: 'Open', closed: 'Closed' },
   },
   hints: {
+    neckBlend: 'Redraws this stretch of the body under the mouth as a curve that meets the neck upright, with no sharp turn. At 0 the shape stays as it is.',
     patternStop: 'Rings and ribs stop this far below the rim of the mouth. At 0 they run all the way up.',
     patternStart: 'Rings and ribs start this far above the base. At 0 they start at the bottom.',
     lh: 'With a {nozzle} mm nozzle the Qidi Q2 takes {min} to {max} mm. Orca profiles: {profiles}.',

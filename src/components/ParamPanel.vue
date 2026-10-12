@@ -132,6 +132,8 @@ function hole(which) {
   return { usable, max: usable ? Math.max(2, Math.floor(2 * cap.spec.holeMax)) : 2 };
 }
 const holeTop = computed(() => hole('top'));
+/* the transition can take at most part of the body, so a short body lowers the slider's end */
+const neckBlendMax = computed(() => Math.max(1, Math.floor(shape.value.neckBlendMax)));
 const holeBottom = computed(() => hole('bottom'));
 const holeHint = (limits) => t('hints.hole', { max: formatNumber(limits.max) });
 
@@ -206,6 +208,7 @@ function onReset() { resetParams(); setStatus('exporting.resetDone'); }
       <SwitchField id="topThread" :label="t('fields.thread')" :disabled="shape.uneven" :model-value="params.topThread" @update:model-value="setThread('top', $event)" />
       <RangeField id="topD" :label="t('fields.mouthDiameter')" unit="mm" :min="6" :max="200" :step="1" v-model="params.topD" />
       <RangeField id="topL" :label="t('fields.neckLength')" unit="mm" :min="0" :max="40" :step="1" v-model="params.topL" />
+      <RangeField id="neckBlend" :label="t('fields.neckBlend')" unit="mm" :min="0" :max="neckBlendMax" :step="1" :hint="t('hints.neckBlend')" v-model="params.neckBlend" />
       <RangeField id="patternStop" :label="t('fields.patternStop')" unit="mm" :min="0" :max="60" :step="0.5" :hint="t('hints.patternStop')" v-model="params.patternStop" />
       <p class="form-text mb-0" :class="{ 'text-warn': noteTop.warn }" id="note-top">{{ noteTop.text }}</p>
     </PanelSection>
