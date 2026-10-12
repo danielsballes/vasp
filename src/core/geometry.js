@@ -107,7 +107,9 @@ export function derive(p) {
   q.ribWf = clamp((+p.ribWidth || 30) / 100, 0.05, 1);
   q.twist = q.ribs > 0 && q.ribA !== 0 ? rad(+p.twist || 0) : 0;
   q.ramp = clamp(q.hb * 0.18, 4, 25);
-  q.neckBlend = clamp(+p.neckBlend || 0, 0, 0.6 * q.hb);   // length of the transition into the mouth, in mm
+  /* length of the transition into the mouth, in mm: up to 80, and never more than 60 % of the body */
+  q.neckBlendMax = Math.min(80, 0.6 * q.hb);
+  q.neckBlend = clamp(+p.neckBlend || 0, 0, q.neckBlendMax);
 
   /* Base profile: a superelliptic barrel or a free curve through points, limited to the maximum
      wall tilt starting from the radius of each mouth. With `ptsL`, the left side (θ = π) gets its

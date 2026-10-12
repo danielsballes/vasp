@@ -84,6 +84,9 @@ watch(model, (S) => {
     const max = Math.max(2, Math.floor(2 * cap.spec.holeMax));
     if (params[dk] > max) params[dk] = max;
   }
+  /* the transition into the mouth follows the body: a shorter body shortens it too */
+  const blendMax = Math.floor(S.q.neckBlendMax);
+  if (params.neckBlend > blendMax) params.neckBlend = Math.max(0, blendMax);
 }, { immediate: true });
 
 watch([() => view.mode, () => view.heat, () => view.bodyColor, () => view.capColor, () => session.designName], save);

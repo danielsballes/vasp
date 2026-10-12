@@ -208,4 +208,11 @@ describe('transition into the mouth', () => {
     expect(info.openEdges).toBe(0);
     expect(info.volume).toBeGreaterThan(0);
   });
+
+  it('is limited to 80 mm and to 60 % of the body, and tells the panel that limit', () => {
+    expect(G.derive({ ...necked, neckBlend: 999 }).neckBlend).toBe(80);
+    const short = G.derive({ ...necked, H: 60, neckBlend: 80 });
+    expect(short.neckBlendMax).toBeCloseTo(0.6 * short.hb, 9);
+    expect(short.neckBlend).toBe(short.neckBlendMax);
+  });
 });
