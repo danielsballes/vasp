@@ -75,3 +75,19 @@ export function capClearance(G, q, cap) {
   }
   return { min, engage };
 }
+
+/* Distance from point X to the designed outer surface of the body, r(θ, z) with the drop applied,
+   found by sampling that surface finely within 1.2 mm of X. */
+export function distanceToBody(G, q, X) {
+  const angle = Math.atan2(X[1], X[0]), radius = Math.hypot(X[0], X[1]);
+  let best = Infinity;
+  for (let up = -1.2; up <= 1.2001; up += 0.04) {
+    for (let around = -1.2; around <= 1.2001; around += 0.04) {
+      const th = angle + around / Math.max(radius, 5), height = X[2] + up;
+      if (height < 0 || height > G.dropZ(q, q.H, th)) continue;
+      const r = G.bodyR(q, G.bodyRow(q, G.undropZ(q, height, th)), th);
+      best = Math.min(best, Math.hypot(r * Math.cos(th) - X[0], r * Math.sin(th) - X[1], height - X[2]));
+    }
+  }
+  return best;
+}

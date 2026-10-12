@@ -3,7 +3,7 @@ import * as G from '../src/core/geometry.js';
 import { toSTL } from '../src/core/stl.js';
 import { DEFAULTS, PRESETS, applyParams, paramsFromFile, presetParams, seedPoints } from '../src/core/params.js';
 import { suggestPrint, supportAt } from '../src/core/print.js';
-import { capClearance, inspectSTL } from './helpers.js';
+import { capClearance, distanceToBody, inspectSTL } from './helpers.js';
 
 const GOURD = PRESETS.findIndex((p) => p.id === 'gourd');
 
@@ -178,7 +178,6 @@ describe('two-sided profile', () => {
 
 describe('uneven mouth', () => {
   const heightAt = (mesh, ring, segment) => mesh.pos[(ring * mesh.nT + segment) * 3 + 2];
-  const radiusAt = (mesh, ring, segment) => Math.hypot(mesh.pos[(ring * mesh.nT + segment) * 3], mesh.pos[(ring * mesh.nT + segment) * 3 + 1]);
   // the classic lantern drawn with the free profile, so the mouth can drop
   const free = { ...DEFAULTS, profile: 'free', pts: seedPoints(DEFAULTS) };
 
@@ -235,12 +234,27 @@ describe('uneven mouth', () => {
     }
   });
 
-  it('the shell wall is at least two lines thick', () => {
-    const shape = G.derive({ ...free, mouthDrop: 25 });
-    const shell = G.buildShell(shape, 180, 0.8), outerRings = G.buildBody(shape, 180, 0.8).nZ;
-    /* the first inner ring sits right under the outer rim */
-    for (const segment of [0, shell.nT / 4, shell.nT / 2]) {
-      expect(radiusAt(shell, outerRings - 1, segment) - radiusAt(shell, outerRings, segment)).toBeGreaterThanOrEqual(shape.shellWall - 1e-3);
+  it('the shell wall is two lines thick along its normal, over rings, ribs, twist and the drop', () => {
+    const designs = [
+      { ...free, mouthDrop: 25 },
+      { ...free, mouthDrop: -20, ribShape: 'crest', ribRelief: 3, ribs: 12, twist: 40 },
+      { ...presetParams(GOURD, DEFAULTS), mouthDrop: -25 },   // 58 sharp grooves, a narrow mouth
+    ];
+    for (const params of designs) {
+      const shape = G.derive(params);
+      const shell = G.buildShell(shape, 180, 0.8), outerRings = G.buildBody(shape, 180, 0.8).nZ;
+      let thinnest = Infinity;
+      for (let ring = outerRings; ring < shell.nZ; ring += 7) {
+        for (let segment = 0; segment < shell.nT; segment += 13) {
+          const k = (ring * shell.nT + segment) * 3, inner = [shell.pos[k], shell.pos[k + 1], shell.pos[k + 2]];
+          const angle = Math.atan2(inner[1], inner[0]);
+          const outerRadius = G.bodyR(shape, G.bodyRow(shape, G.undropZ(shape, inner[2], angle)), angle);
+          /* where the wall is nearly flat the inset stops at four walls on purpose */
+          if (outerRadius - Math.hypot(inner[0], inner[1]) > 3.99 * shape.shellWall) continue;
+          thinnest = Math.min(thinnest, distanceToBody(G, shape, inner));
+        }
+      }
+      expect(thinnest).toBeGreaterThan(0.95 * shape.shellWall);
     }
   });
 

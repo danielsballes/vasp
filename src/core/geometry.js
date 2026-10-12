@@ -442,6 +442,61 @@ export function buildBody(q, nTarget, dzTarget, perRib) {
   const nZ = Math.max(3, Math.ceil(q.H / dzTarget) + 1);
   return grid(q.H, nT, nZ, (z) => bodyRow(q, z), (row, th) => bodyR(q, row, th), q.uneven ? (z, th) => dropZ(q, z, th) : null);
 }
+/* Inner surface of the shell. Each inner vertex lies on the ray from the axis at angle th and
+   height Z (as printed), as far out as it can while staying `shellWall` away from every point of
+   the outer surface around it. That holds the wall's thickness along the profile, the rings, the
+   ribs (sharp crests too), the twist and the height the drop squeezes. The outer surface is
+   sampled on a fine grid of rows and angles, each point worked out once and shared by the
+   vertices around it; a wall close to horizontal has no support anyway (see print.js), so the
+   inset stops at SHELL_MAX_INSET walls. */
+const SHELL_MAX_INSET = 4;
+function shellInset(q) {
+  const wall = q.shellWall, wallSquared = wall * wall, step = 0.2;
+  const rows = Array.from({ length: Math.ceil(q.H / step) + 1 }, (_, k) => bodyRow(q, Math.min(q.H, k * step)));
+  /* angles a third of a wall apart on the widest part */
+  const angleCount = Math.ceil((3 * TAU * (q.Rmax + Math.abs(q.ribA) + Math.abs(q.ringA))) / wall);
+  const angleStep = TAU / angleCount;
+  const radii = new Float32Array(rows.length * angleCount).fill(NaN);
+  let Z = 0, th = 0, radius = 0;
+  /* tries the outer points at `angle`, on every fine row whose printed height is within a wall of
+     Z: how far out along the ray the vertex can go and stay a wall away from each one */
+  const tryAngle = (angle, cell) => {
+    const along = Math.cos(angle - th), across = Math.sin(angle - th);
+    const first = Math.max(0, Math.floor(undropZ(q, Math.max(0, Z - wall), angle) / step));
+    const last = Math.min(rows.length - 1, Math.ceil(undropZ(q, Math.min(q.H, Z + wall), angle) / step));
+    const squeeze = q.uneven ? (q.drop * dropShare(q, angle)) / (q.H - q.dropFrom) : 0;   // dropZ, worked out once per angle
+    for (let k = first; k <= last; k++) {
+      const z = rows[k].z, gapZ = (z > q.dropFrom ? z - squeeze * (z - q.dropFrom) : z) - Z;
+      if (gapZ * gapZ >= wallSquared) continue;
+      let outer;
+      if (cell < 0) outer = bodyR(q, rows[k], angle);
+      else {
+        const index = k * angleCount + cell;
+        outer = radii[index];
+        if (outer !== outer) outer = radii[index] = bodyR(q, rows[k], angle);   // not worked out yet (NaN)
+      }
+      const sideways = outer * across, offRay = sideways * sideways + gapZ * gapZ;   // distance to the ray, squared
+      if (offRay < wallSquared) radius = Math.min(radius, outer * along - Math.sqrt(wallSquared - offRay));
+    }
+  };
+  /* radius of the inner vertex at angle `angle` and printed height `height`, where the outer
+     radius is R and the ribs are turned by tw */
+  return (R, angle, height, tw) => {
+    th = angle; Z = height; radius = R - wall;
+    const reach = wall / Math.max(R - Math.abs(q.ribA) - Math.abs(q.ringA), wall);   // the angle a wall spans
+    const stride = Math.max(1, Math.floor(wall / (3 * R * angleStep)));   // about a third of a wall apart here
+    const from = Math.floor((th - reach) / angleStep / stride) * stride, to = th + reach;
+    for (let m = from; m * angleStep <= to; m += stride) tryAngle(m * angleStep, ((m % angleCount) + angleCount) % angleCount);
+    /* the crests and the edges of the ribs are where the surface folds, so they are tried exactly */
+    if (q.ribs > 0 && q.ribA !== 0) {
+      const ribStep = TAU / q.ribs;
+      for (const edge of [0, -q.ribWf / 2, q.ribWf / 2]) {
+        for (let k = Math.ceil((th - reach - tw) / ribStep - edge); tw + (k + edge) * ribStep <= to; k++) tryAngle(tw + (k + edge) * ribStep, -1);
+      }
+    }
+    return Math.max(0.5, R - SHELL_MAX_INSET * wall, radius);
+  };
+}
 /* Body of an uneven mouth as a shell: the outer surface up to the rim, then the inner one,
    `shellWall` inside it, back down. With an open base the two meet at the bottom (a loop mesh);
    with a closed one the inside stops on the floor, `baseT` up. Every layer is then a ring or an
@@ -454,22 +509,16 @@ export function buildShell(q, nTarget, dzTarget, perRib) {
   const pos = new Float32Array(nT * (nZ + innerRings) * 3);
   pos.set(outer.pos);
   let cursor = nT * nZ * 3;
+  const innerRadius = shellInset(q);
   for (let ring = 0; ring < innerRings; ring++) {
     const z = q.H - ((q.H - innerFloorZ) * ring) / (innerRings - 1);
     const row = bodyRow(q, z);
-    /* Offset horizontally by the wall over the cosine of the profile's tilt (the steeper of the
-       two sides), so the wall keeps its thickness. */
-    const position = clamp(z / q.dz, 0, q.M), sample = Math.min(q.M - 1, Math.floor(position)), fraction = position - sample;
-    const slopeRight = q.slope[sample] * (1 - fraction) + q.slope[sample + 1] * fraction;
-    const slopeLeft = q.slopeL[sample] * (1 - fraction) + q.slopeL[sample + 1] * fraction;
-    const steepest = Math.max(Math.abs(slopeRight), Math.abs(slopeLeft));
-    const wallOffset = q.shellWall * Math.sqrt(1 + steepest * steepest);
     for (let j = 0; j < nT; j++) {
-      const th = (TAU * j) / nT + row.tw;
-      const radius = Math.max(0.5, bodyR(q, row, th) - wallOffset);
+      const th = (TAU * j) / nT + row.tw, height = dropZ(q, z, th);
+      const radius = innerRadius(bodyR(q, row, th), th, height, row.tw);
       pos[cursor++] = radius * Math.cos(th);
       pos[cursor++] = radius * Math.sin(th);
-      pos[cursor++] = dropZ(q, z, th);
+      pos[cursor++] = height;
     }
   }
   return { pos, nT, nZ: nZ + innerRings, H: q.H, loop: !q.closed, c0: [0, 0, 0], c1: [0, 0, innerFloorZ] };
