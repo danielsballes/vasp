@@ -209,6 +209,14 @@ describe('transition into the mouth', () => {
     expect(info.volume).toBeGreaterThan(0);
   });
 
+  it('counts as part of the requested profile, so the editor and the shoulder hint do not report it as a trim', () => {
+    const trimmed = (shape) => Math.max(...shape.want.map((radius, sample) => radius - shape.base[sample]));
+    const plain = G.derive(necked), blended = G.derive({ ...necked, neckBlend: 40 });
+    expect(trimmed(blended)).toBeLessThan(trimmed(plain) + 0.2);
+    /* the rounded corner joins the body without a step, so the requested tilt does not jump */
+    expect(blended.wantDeg).toBeLessThanOrEqual(plain.wantDeg + 1);
+  });
+
   it('is limited to 80 mm and to 60 % of the body, and tells the panel that limit', () => {
     expect(G.derive({ ...necked, neckBlend: 999 }).neckBlend).toBe(80);
     const short = G.derive({ ...necked, H: 60, neckBlend: 80 });
