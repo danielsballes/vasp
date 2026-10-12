@@ -430,7 +430,7 @@ function grid(H, nT, nZ, rowFn, rFn, heightFn) {
       pos[o++] = heightFn ? heightFn(z, th) : z;
     }
   }
-  return { pos, rr, zs, tws, zone, nT, nZ, H, c0: [0, 0, 0], c1: [0, 0, heightFn ? (heightFn(H, 0) + heightFn(H, Math.PI)) / 2 : H] };
+  return { pos, rr, zs, tws, zone, nT, nZ, H, dropped: !!heightFn, c0: [0, 0, 0], c1: [0, 0, heightFn ? (heightFn(H, 0) + heightFn(H, Math.PI)) / 2 : H] };
 }
 /* Segments around: a multiple of the rib count, so every crest lands on a vertex. */
 export function segments(q, target, perRib) {
@@ -535,14 +535,17 @@ export function measure(g, wantAngles) {
     const ja = Math.max(0, j - 1), jb = Math.min(nZ - 1, j + 1);
     for (let i = 0; i < nT; i++) {
       const k = j * nT + i;
-      /* vertical step at this vertex: it shrinks on the side where the mouth drops */
-      const verticalStep = pos[(jb * nT + i) * 3 + 2] - pos[(ja * nT + i) * 3 + 2];
-      const twp = (tws[jb] - tws[ja]) / verticalStep;
       const r = rr[k];
       if (r > rMax) rMax = r;
-      const rth = (rr[j * nT + ((i + 1) % nT)] - rr[j * nT + ((i + nT - 1) % nT)]) / (2 * dth);
-      const rz = (rr[jb * nT + i] - rr[ja * nT + i]) / verticalStep - rth * twp;
-      const a = Math.atan((r * Math.abs(rz)) / Math.sqrt(r * r + rth * rth));
+      let a;
+      if (g.dropped) a = tiltFromNormal(pos, j * nT + ((i + nT - 1) % nT), j * nT + ((i + 1) % nT), ja * nT + i, jb * nT + i);
+      else {
+        const verticalStep = pos[(jb * nT + i) * 3 + 2] - pos[(ja * nT + i) * 3 + 2];
+        const twp = (tws[jb] - tws[ja]) / verticalStep;
+        const rth = (rr[j * nT + ((i + 1) % nT)] - rr[j * nT + ((i + nT - 1) % nT)]) / (2 * dth);
+        const rz = (rr[jb * nT + i] - rr[ja * nT + i]) / verticalStep - rth * twp;
+        a = Math.atan((r * Math.abs(rz)) / Math.sqrt(r * r + rth * rth));
+      }
       if (ang) ang[k] = a;
       if (a > zoneMax[zone[j]]) zoneMax[zone[j]] = a;
       if (j < nZ - 1) {
@@ -554,6 +557,15 @@ export function measure(g, wantAngles) {
   }
   const deg = zoneMax.map((v) => (v * 180) / Math.PI);
   return { rMax, area, overBody: deg[0], overBot: deg[1], overTop: deg[2], over: Math.max(deg[0], deg[1], deg[2]), ang };
+}
+/* Wall tilt from vertical where the rings are not level (an uneven mouth): the surface normal from
+   the vertices on either side along the ring (previous, next) and up the column (below, above), and
+   the tilt is how far that normal points up or down. */
+function tiltFromNormal(pos, previous, next, below, above) {
+  const along = [0, 1, 2].map((axis) => pos[next * 3 + axis] - pos[previous * 3 + axis]);
+  const up = [0, 1, 2].map((axis) => pos[above * 3 + axis] - pos[below * 3 + axis]);
+  const normal = [along[1] * up[2] - along[2] * up[1], along[2] * up[0] - along[0] * up[2], along[0] * up[1] - along[1] * up[0]];
+  return Math.atan(Math.abs(normal[2]) / Math.hypot(normal[0], normal[1]));
 }
 function triArea(p, a, b, c) {
   const ux = p[b] - p[a], uy = p[b + 1] - p[a + 1], uz = p[b + 2] - p[a + 2];

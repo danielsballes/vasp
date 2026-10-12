@@ -258,6 +258,30 @@ describe('uneven mouth', () => {
     }
   });
 
+  it('the support map measures the tilt of the dropped surface, not of the rows before the drop', () => {
+    const shape = G.derive({ ...free, mouthDrop: 25 });
+    const mesh = G.buildBody(shape, 360, 0.25), angles = G.measure(mesh, true).ang;
+    /* the tilt of the surface as printed, from its normal worked out on r(θ, z) with the drop */
+    const point = (height, angle) => {
+      const radius = G.bodyR(shape, G.bodyRow(shape, height), angle);
+      return [radius * Math.cos(angle), radius * Math.sin(angle), G.dropZ(shape, height, angle)];
+    };
+    let worst = 0;
+    for (let ring = 1; ring < mesh.nZ - 1; ring += 4) {
+      const height = mesh.zs[ring];
+      if (height < shape.dropFrom + 2) continue;   // only where the drop tilts the rows
+      for (let segment = 0; segment < mesh.nT; segment += 9) {
+        const angle = (2 * Math.PI * segment) / mesh.nT + mesh.tws[ring], step = 1e-4;
+        const [after, before, above, below] = [point(height, angle + step), point(height, angle - step), point(height + step, angle), point(height - step, angle)];
+        const along = after.map((value, axis) => value - before[axis]), up = above.map((value, axis) => value - below[axis]);
+        const normal = [along[1] * up[2] - along[2] * up[1], along[2] * up[0] - along[0] * up[2], along[0] * up[1] - along[1] * up[0]];
+        const tilt = Math.atan(Math.abs(normal[2]) / Math.hypot(normal[0], normal[1]));
+        worst = Math.max(worst, Math.abs(tilt - angles[ring * mesh.nT + segment]));
+      }
+    }
+    expect((worst * 180) / Math.PI).toBeLessThan(0.5);   // the rows before the drop are 1° off here
+  });
+
   it('loads mouthDrop from a file and limits it to the body', () => {
     expect(applyParams({ ...DEFAULTS }, { mouthDrop: -25 }).mouthDrop).toBe(-25);
     const shape = G.derive({ ...free, mouthDrop: 999 });
