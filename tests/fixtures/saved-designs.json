@@ -1,0 +1,518 @@
+{
+ "library": {
+  "app": "Vasp",
+  "kind": "vasp-designs",
+  "version": 1,
+  "designs": [
+   {
+    "id": "design-1",
+    "name": "Lantern",
+    "savedAt": "2026-10-01T12:00:00.000Z",
+    "params": {
+     "H": 200,
+     "D": 130,
+     "n": 5,
+     "belly": 50,
+     "shoulder": 45,
+     "rings": 13,
+     "ringRelief": 1.2,
+     "ringWidth": 5,
+     "ribs": 8,
+     "ribRelief": 1,
+     "ribWidth": 16,
+     "twist": 0,
+     "botD": 76,
+     "botL": 16,
+     "botThread": true,
+     "patternStart": 0,
+     "topD": 76,
+     "topL": 16,
+     "topThread": true,
+     "mouthDrop": 0,
+     "patternStop": 0,
+     "neckBlend": 0,
+     "pitch": 4,
+     "depth": 1.2,
+     "clearance": 0.3,
+     "capWall": 2,
+     "capFloor": 1.6,
+     "topHole": false,
+     "topHoleD": 40,
+     "botHole": false,
+     "botHoleD": 10,
+     "nozzle": 0.4,
+     "lh": 0.2,
+     "lw": 0.42,
+     "protect": true,
+     "base": "open",
+     "baseT": 1,
+     "profile": "barrel",
+     "pts": null,
+     "ptsL": null,
+     "curve": "smooth",
+     "ribShape": "wave",
+     "ribProp": false,
+     "quality": "normal"
+    }
+   },
+   {
+    "id": "design-2",
+    "name": "Two sides",
+    "savedAt": "2026-10-01T12:00:00.000Z",
+    "params": {
+     "H": 200,
+     "D": 130,
+     "n": 5,
+     "belly": 50,
+     "shoulder": 45,
+     "rings": 13,
+     "ringRelief": -1,
+     "ringWidth": 5,
+     "ribs": 24,
+     "ribRelief": 1,
+     "ribWidth": 16,
+     "twist": 30,
+     "botD": 76,
+     "botL": 16,
+     "botThread": true,
+     "patternStart": 0,
+     "topD": 76,
+     "topL": 16,
+     "topThread": true,
+     "mouthDrop": 0,
+     "patternStop": 0,
+     "neckBlend": 0,
+     "pitch": 4,
+     "depth": 1.2,
+     "clearance": 0.3,
+     "capWall": 2,
+     "capFloor": 1.6,
+     "topHole": false,
+     "topHoleD": 40,
+     "botHole": false,
+     "botHoleD": 10,
+     "nozzle": 0.4,
+     "lh": 0.2,
+     "lw": 0.42,
+     "protect": true,
+     "base": "open",
+     "baseT": 1,
+     "profile": "free",
+     "pts": [
+      [
+       0.1,
+       0.826
+      ],
+      [
+       0.3,
+       0.998
+      ],
+      [
+       0.5,
+       1
+      ],
+      [
+       0.7,
+       0.998
+      ],
+      [
+       0.9,
+       0.826
+      ]
+     ],
+     "ptsL": [
+      [
+       0.3,
+       0.7
+      ],
+      [
+       0.75,
+       1
+      ]
+     ],
+     "curve": "smooth",
+     "ribShape": "wave",
+     "ribProp": false,
+     "quality": "normal"
+    }
+   },
+   {
+    "id": "design-3",
+    "name": "Gourd",
+    "savedAt": "2026-10-01T12:00:00.000Z",
+    "params": {
+     "H": 200,
+     "D": 116,
+     "n": 5,
+     "belly": 50,
+     "shoulder": 60,
+     "rings": 0,
+     "ringRelief": 1.2,
+     "ringWidth": 5,
+     "ribs": 58,
+     "ribRelief": -3,
+     "ribWidth": 100,
+     "twist": 0,
+     "botD": 44,
+     "botL": 0,
+     "botThread": false,
+     "patternStart": 0,
+     "topD": 18,
+     "topL": 0,
+     "topThread": false,
+     "mouthDrop": 0,
+     "patternStop": 0,
+     "neckBlend": 0,
+     "pitch": 4,
+     "depth": 1.2,
+     "clearance": 0.3,
+     "capWall": 2,
+     "capFloor": 1.6,
+     "topHole": false,
+     "topHoleD": 40,
+     "botHole": false,
+     "botHoleD": 10,
+     "nozzle": 0.4,
+     "lh": 0.2,
+     "lw": 0.42,
+     "protect": true,
+     "base": "closed",
+     "baseT": 1,
+     "profile": "free",
+     "pts": [
+      [
+       0.2967,
+       1
+      ],
+      [
+       0.5685,
+       0.53
+      ],
+      [
+       0.7526,
+       0.8028
+      ],
+      [
+       0.9654,
+       0.1678
+      ]
+     ],
+     "ptsL": null,
+     "curve": "round",
+     "ribShape": "crest",
+     "ribProp": true,
+     "quality": "normal"
+    }
+   },
+   {
+    "id": "design-4",
+    "name": "Closed base, 0.6 nozzle",
+    "savedAt": "2026-10-01T12:00:00.000Z",
+    "params": {
+     "H": 200,
+     "D": 130,
+     "n": 5,
+     "belly": 50,
+     "shoulder": 45,
+     "rings": 13,
+     "ringRelief": 1.2,
+     "ringWidth": 5,
+     "ribs": 8,
+     "ribRelief": 1,
+     "ribWidth": 16,
+     "twist": 0,
+     "botD": 76,
+     "botL": 16,
+     "botThread": false,
+     "patternStart": 0,
+     "topD": 76,
+     "topL": 16,
+     "topThread": true,
+     "mouthDrop": 0,
+     "patternStop": 0,
+     "neckBlend": 0,
+     "pitch": 4,
+     "depth": 1.2,
+     "clearance": 0.3,
+     "capWall": 2,
+     "capFloor": 1.6,
+     "topHole": true,
+     "topHoleD": 30,
+     "botHole": false,
+     "botHoleD": 10,
+     "nozzle": 0.6,
+     "lh": 0.36,
+     "lw": 0.7,
+     "protect": true,
+     "base": "closed",
+     "baseT": 1,
+     "profile": "barrel",
+     "pts": null,
+     "ptsL": null,
+     "curve": "smooth",
+     "ribShape": "wave",
+     "ribProp": false,
+     "quality": "normal"
+    }
+   }
+  ]
+ },
+ "expected": {
+  "Lantern": {
+   "params": {
+    "H": 200,
+    "D": 130,
+    "n": 5,
+    "belly": 50,
+    "shoulder": 45,
+    "rings": 13,
+    "ringRelief": 1.2,
+    "ringWidth": 5,
+    "ribs": 8,
+    "ribRelief": 1,
+    "ribWidth": 16,
+    "twist": 0,
+    "botD": 76,
+    "botL": 16,
+    "botThread": true,
+    "patternStart": 0,
+    "topD": 76,
+    "topL": 16,
+    "topThread": true,
+    "mouthDrop": 0,
+    "patternStop": 0,
+    "neckBlend": 0,
+    "pitch": 4,
+    "depth": 1.2,
+    "clearance": 0.3,
+    "capWall": 2,
+    "capFloor": 1.6,
+    "topHole": false,
+    "topHoleD": 40,
+    "botHole": false,
+    "botHoleD": 10,
+    "nozzle": 0.4,
+    "lh": 0.2,
+    "lw": 0.42,
+    "protect": true,
+    "base": "open",
+    "baseT": 1,
+    "profile": "barrel",
+    "pts": null,
+    "ptsL": null,
+    "curve": "smooth",
+    "ribShape": "wave",
+    "ribProp": false,
+    "quality": "normal"
+   },
+   "parts": {
+    "body": "9ee0751bed9a069ead5eef21db3f33c6e27283a640cf9c373a23a9a726f66749",
+    "bottom": "6f6e35034c2ffa93004283de0b4561f536389b74dd2587182d8888b14c669d81",
+    "top": "92b523b0187fa0b53c36528a0699a1df97d9014a0bca3b77839eb7c3b3957d27"
+   }
+  },
+  "Two sides": {
+   "params": {
+    "H": 200,
+    "D": 130,
+    "n": 5,
+    "belly": 50,
+    "shoulder": 45,
+    "rings": 13,
+    "ringRelief": -1,
+    "ringWidth": 5,
+    "ribs": 24,
+    "ribRelief": 1,
+    "ribWidth": 16,
+    "twist": 30,
+    "botD": 76,
+    "botL": 16,
+    "botThread": true,
+    "patternStart": 0,
+    "topD": 76,
+    "topL": 16,
+    "topThread": true,
+    "mouthDrop": 0,
+    "patternStop": 0,
+    "neckBlend": 0,
+    "pitch": 4,
+    "depth": 1.2,
+    "clearance": 0.3,
+    "capWall": 2,
+    "capFloor": 1.6,
+    "topHole": false,
+    "topHoleD": 40,
+    "botHole": false,
+    "botHoleD": 10,
+    "nozzle": 0.4,
+    "lh": 0.2,
+    "lw": 0.42,
+    "protect": true,
+    "base": "open",
+    "baseT": 1,
+    "profile": "free",
+    "pts": [
+     [
+      0.1,
+      0.826
+     ],
+     [
+      0.3,
+      0.998
+     ],
+     [
+      0.5,
+      1
+     ],
+     [
+      0.7,
+      0.998
+     ],
+     [
+      0.9,
+      0.826
+     ]
+    ],
+    "ptsL": [
+     [
+      0.3,
+      0.7
+     ],
+     [
+      0.75,
+      1
+     ]
+    ],
+    "curve": "smooth",
+    "ribShape": "wave",
+    "ribProp": false,
+    "quality": "normal"
+   },
+   "parts": {
+    "body": "0779966748f458c972c2ec98227962b55932f455b98c9ea5b23ecfeffeb41006",
+    "bottom": "6f6e35034c2ffa93004283de0b4561f536389b74dd2587182d8888b14c669d81",
+    "top": "92b523b0187fa0b53c36528a0699a1df97d9014a0bca3b77839eb7c3b3957d27"
+   }
+  },
+  "Gourd": {
+   "params": {
+    "H": 200,
+    "D": 116,
+    "n": 5,
+    "belly": 50,
+    "shoulder": 60,
+    "rings": 0,
+    "ringRelief": 1.2,
+    "ringWidth": 5,
+    "ribs": 58,
+    "ribRelief": -3,
+    "ribWidth": 100,
+    "twist": 0,
+    "botD": 44,
+    "botL": 0,
+    "botThread": false,
+    "patternStart": 0,
+    "topD": 18,
+    "topL": 0,
+    "topThread": false,
+    "mouthDrop": 0,
+    "patternStop": 0,
+    "neckBlend": 0,
+    "pitch": 4,
+    "depth": 1.2,
+    "clearance": 0.3,
+    "capWall": 2,
+    "capFloor": 1.6,
+    "topHole": false,
+    "topHoleD": 40,
+    "botHole": false,
+    "botHoleD": 10,
+    "nozzle": 0.4,
+    "lh": 0.2,
+    "lw": 0.42,
+    "protect": true,
+    "base": "closed",
+    "baseT": 1,
+    "profile": "free",
+    "pts": [
+     [
+      0.2967,
+      1
+     ],
+     [
+      0.5685,
+      0.53
+     ],
+     [
+      0.7526,
+      0.8028
+     ],
+     [
+      0.9654,
+      0.1678
+     ]
+    ],
+    "ptsL": null,
+    "curve": "round",
+    "ribShape": "crest",
+    "ribProp": true,
+    "quality": "normal"
+   },
+   "parts": {
+    "body": "2ef31b734c99ff585692056e55742a51af05b76f78757eb93037d6d7736e4bc4"
+   }
+  },
+  "Closed base, 0.6 nozzle": {
+   "params": {
+    "H": 200,
+    "D": 130,
+    "n": 5,
+    "belly": 50,
+    "shoulder": 45,
+    "rings": 13,
+    "ringRelief": 1.2,
+    "ringWidth": 5,
+    "ribs": 8,
+    "ribRelief": 1,
+    "ribWidth": 16,
+    "twist": 0,
+    "botD": 76,
+    "botL": 16,
+    "botThread": false,
+    "patternStart": 0,
+    "topD": 76,
+    "topL": 16,
+    "topThread": true,
+    "mouthDrop": 0,
+    "patternStop": 0,
+    "neckBlend": 0,
+    "pitch": 4,
+    "depth": 1.2,
+    "clearance": 0.3,
+    "capWall": 2,
+    "capFloor": 1.6,
+    "topHole": true,
+    "topHoleD": 30,
+    "botHole": false,
+    "botHoleD": 10,
+    "nozzle": 0.6,
+    "lh": 0.36,
+    "lw": 0.7,
+    "protect": true,
+    "base": "closed",
+    "baseT": 1,
+    "profile": "barrel",
+    "pts": null,
+    "ptsL": null,
+    "curve": "smooth",
+    "ribShape": "wave",
+    "ribProp": false,
+    "quality": "normal"
+   },
+   "parts": {
+    "body": "05e8cf0781bfed9f48bc9d81834c452c2adb3a2b43eead4938ec16769a193a8f",
+    "top": "78a5c647cd4c720557bb3b44d0127ff560a47e0e09572721bb8125e41814f9ab"
+   }
+  }
+ }
+}

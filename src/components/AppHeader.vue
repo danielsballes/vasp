@@ -35,7 +35,7 @@ const { onParamsFile } = useParamsFile();
     <div class="top-actions">
       <p class="status mb-0" :class="'is-' + (status.kind || 'plain')" id="status" role="status" aria-live="polite">{{ status.text }}</p>
       <select class="form-select form-select-sm lang-select" id="lang" :aria-label="t('app.language')" :value="locale" @change="setLocale($event.target.value)">
-        <option v-for="l in LOCALES" :key="l.code" :value="l.code" :lang="l.code">{{ l.label }}</option>
+        <option v-for="language in LOCALES" :key="language.code" :value="language.code" :lang="language.code">{{ language.label }}</option>
       </select>
       <button type="button" class="btn btn-primary top-export" id="btn-export" :disabled="busy" @click="exportAll">{{ t('app.exportStl') }}</button>
       <label class="btn btn-sm btn-outline-secondary file-btn">

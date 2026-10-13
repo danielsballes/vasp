@@ -1,6 +1,10 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DEFAULTS } from '../src/core/params.js';
+import * as G from '../src/core/geometry.js';
+import { toSTL } from '../src/core/stl.js';
+import { DEFAULTS, cloneParams } from '../src/core/params.js';
 import { NAME_MAX, mergeLibraries, parseLibrary, removeDesign, serializeLibrary, upsertDesign } from '../src/core/designs.js';
+import { stlDigest } from './helpers.js';
 
 const T0 = Date.UTC(2026, 0, 1);
 const HOUR = 3600e3;
@@ -16,7 +20,7 @@ describe('saved designs', () => {
     expect(first.design.params.pts[0][1]).toBe(0.9);
 
     const second = upsertDesign(first.list, 'Planter', { ...DEFAULTS, H: 90 }, T0 + HOUR);
-    expect(second.list.map((d) => d.name)).toEqual(['Planter', 'Hall lantern']);
+    expect(second.list.map((design) => design.name)).toEqual(['Planter', 'Hall lantern']);
   });
 
   it('saving under an existing name replaces that design and keeps its id', () => {
@@ -35,16 +39,16 @@ describe('saved designs', () => {
   });
 
   it('removes a design by id', () => {
-    const a = upsertDesign([], 'A', DEFAULTS, T0);
-    const b = upsertDesign(a.list, 'B', DEFAULTS, T0 + HOUR);
-    expect(removeDesign(b.list, a.design.id).map((d) => d.name)).toEqual(['B']);
+    const first = upsertDesign([], 'A', DEFAULTS, T0);
+    const second = upsertDesign(first.list, 'B', DEFAULTS, T0 + HOUR);
+    expect(removeDesign(second.list, first.design.id).map((design) => design.name)).toEqual(['B']);
   });
 
   it('survives a round trip through JSON', () => {
-    const a = upsertDesign([], 'A', { ...DEFAULTS, base: 'closed', H: 120 }, T0);
-    const b = upsertDesign(a.list, 'B', { ...DEFAULTS, profile: 'free', pts: [[0.5, 0.8]] }, T0 + HOUR);
-    const back = parseLibrary(JSON.parse(JSON.stringify(serializeLibrary(b.list))));
-    expect(back).toEqual(b.list);
+    const first = upsertDesign([], 'A', { ...DEFAULTS, base: 'closed', H: 120 }, T0);
+    const second = upsertDesign(first.list, 'B', { ...DEFAULTS, profile: 'free', pts: [[0.5, 0.8]] }, T0 + HOUR);
+    const back = parseLibrary(JSON.parse(JSON.stringify(serializeLibrary(second.list))));
+    expect(back).toEqual(second.list);
   });
 
   it('tells a wrong file from an empty library and skips broken entries', () => {
@@ -55,10 +59,10 @@ describe('saved designs', () => {
     data.designs.push({ name: 'No parameters' }, null, { name: '', params: DEFAULTS }, { name: 'good', params: DEFAULTS });
     data.designs.push({ name: 'Odd values', savedAt: 'yesterday', params: { H: 'tall', base: 'cerrada' } });
     const list = parseLibrary(data, T0 + HOUR);
-    expect(list.map((d) => d.name)).toEqual(['Odd values', 'Good']);
+    expect(list.map((design) => design.name)).toEqual(['Odd values', 'Good']);
     expect(list[0].params.H).toBe(DEFAULTS.H);              // wrong types fall back to the defaults
     expect(list[0].params.base).toBe('closed');             // values from the original build still load
-    expect(new Set(list.map((d) => d.id)).size).toBe(2);
+    expect(new Set(list.map((design) => design.id)).size).toBe(2);
   });
 
   it('restoring a backup adds new designs and only replaces older ones', () => {
@@ -66,11 +70,46 @@ describe('saved designs', () => {
     const backup = upsertDesign(upsertDesign(upsertDesign([], 'Kept', { ...DEFAULTS, H: 200 }, T0).list, 'Stale', { ...DEFAULTS, H: 200 }, T0 + HOUR).list, 'New', DEFAULTS, T0).list;
     const { list, changed } = mergeLibraries(current, backup);
     expect(changed).toBe(2);
-    const byName = Object.fromEntries(list.map((d) => [d.name, d]));
+    const byName = Object.fromEntries(list.map((design) => [design.name, design]));
     expect(byName.Kept.params.H).toBe(100);                 // the copy in the browser is newer
     expect(byName.Stale.params.H).toBe(200);                // the copy in the backup is newer
-    expect(byName.Stale.id).toBe(current.find((d) => d.name === 'Stale').id);
+    expect(byName.Stale.id).toBe(current.find((design) => design.name === 'Stale').id);
     expect(Object.keys(byName).sort()).toEqual(['Kept', 'New', 'Stale']);
     expect(mergeLibraries(list, backup).changed).toBe(0);   // restoring twice changes nothing
   });
+});
+
+/* `fixtures/saved-designs.json` is a design library saved in the current format, together with the
+   loaded parameters and the SHA-256 of every part each design exported, both worked out with the
+   code before the readable-names refactor. Loading it now must give the same parameters and the
+   same parts, so renaming code never breaks a design someone already saved. A change that alters
+   the exported parts on purpose has to update the digests here. */
+describe('designs saved before the renames', () => {
+  const fixture = JSON.parse(readFileSync(new URL('./fixtures/saved-designs.json', import.meta.url), 'utf8'));
+  const designs = parseLibrary(fixture.library);
+
+  it('all load, with the same parameters', () => {
+    expect(designs.map((design) => design.name)).toEqual(Object.keys(fixture.expected));
+    for (const design of designs) {
+      const loaded = cloneParams(design.params), expected = fixture.expected[design.name].params;
+      for (const [key, value] of Object.entries(loaded)) {
+        /* a parameter added after the fixture was made comes in at its default */
+        expect(value, `${design.name}, ${key}`).toEqual(key in expected ? expected[key] : DEFAULTS[key]);
+      }
+      for (const key of Object.keys(expected)) expect(loaded, `${design.name}, ${key}`).toHaveProperty(key);
+    }
+  });
+
+  it('export the same body and caps, byte for byte', () => {
+    for (const design of designs) {
+      const shape = G.derive(cloneParams(design.params));
+      const parts = { body: stlDigest(toSTL(G.buildBody(shape, 180, 0.8), 'body')) };
+      for (const which of ['bottom', 'top']) {
+        const cap = G.capSpec(shape, which);
+        if (cap) parts[which] = stlDigest(toSTL(G.buildCap(shape, cap, 180, 0.25, false), which + ' cap'));
+      }
+      expect(parts, design.name).toEqual(fixture.expected[design.name].parts);
+    }
+  });
+
 });

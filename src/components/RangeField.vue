@@ -18,19 +18,19 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue']);
 const { t } = useI18n();
 
-const num = ref(null);
+const numberBox = ref(null);
 let typing = false;
-const show = (v) => { if (num.value) num.value.value = String(v); };
+const show = (value) => { if (numberBox.value) numberBox.value.value = String(value); };
 onMounted(() => show(props.modelValue));
-watch(() => props.modelValue, (v) => { if (!typing) show(v); });
+watch(() => props.modelValue, (value) => { if (!typing) show(value); });
 
 function commit(raw) {
-  const v = parseFloat(raw);
-  if (!Number.isFinite(v)) return;
-  emit('update:modelValue', Math.min(props.max, Math.max(props.min, v)));
+  const value = parseFloat(raw);
+  if (!Number.isFinite(value)) return;
+  emit('update:modelValue', Math.min(props.max, Math.max(props.min, value)));
 }
-function onRange(e) { typing = false; commit(e.target.value); }
-function onNum(e) { typing = true; commit(e.target.value); }
+function onRange(event) { typing = false; commit(event.target.value); }
+function onNumber(event) { typing = true; commit(event.target.value); }
 function onBlur() { typing = false; show(props.modelValue); }
 </script>
 
@@ -40,10 +40,10 @@ function onBlur() { typing = false; show(props.modelValue); }
       <label class="form-label mb-0" :for="'p-' + id">{{ label }}</label>
       <span class="num-box">
         <input
-          ref="num" type="number" class="form-control form-control-sm" inputmode="decimal"
+          ref="numberBox" type="number" class="form-control form-control-sm" inputmode="decimal"
           :id="'n-' + id" :min="min" :max="max" :step="step" :disabled="disabled"
           :aria-label="unit ? t('fields.withUnit', { label, unit }) : label"
-          @input="onNum" @blur="onBlur"
+          @input="onNumber" @blur="onBlur"
         >
         <span class="unit">{{ unit }}</span>
       </span>

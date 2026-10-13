@@ -2,10 +2,10 @@
 import { computed } from 'vue';
 import { useModel } from '../composables/useModel.js';
 import { orcaLines } from '../core/notes.js';
-import { nf, t } from '../i18n/index.js';
+import { formatNumber, t } from '../i18n/index.js';
 
 const { params, model } = useModel();
-const lines = computed(() => orcaLines({ p: params, ...model.value }, { t, nf }));
+const lines = computed(() => orcaLines({ params, ...model.value }, { t, formatNumber }));
 </script>
 
 <template>

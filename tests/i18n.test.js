@@ -19,7 +19,7 @@ function flatten(node, prefix = '', out = {}) {
   }
   return out;
 }
-const placeholders = (text) => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+const placeholders = (text) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
 
 function sourceFiles(dir, out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -40,7 +40,7 @@ function translator(messages) {
       return String(named[name]);
     });
   };
-  return { t, nf: (value, digits = 0) => Number(value).toFixed(digits) };
+  return { t, formatNumber: (value, digits = 0) => Number(value).toFixed(digits) };
 }
 
 const flat = Object.fromEntries(Object.entries(LOCALES).map(([code, messages]) => [code, flatten(messages)]));
@@ -75,9 +75,9 @@ describe('message files', () => {
     for (const file of sourceFiles(SRC)) {
       const code = readFileSync(file, 'utf8');
       /* keys passed straight to t() or setStatus(), including prefixes such as 'presets.' + id */
-      for (const m of code.matchAll(/\b(?:t|setStatus)\(\s*'([\w.]+)'/g)) used.add(m[1]);
+      for (const match of code.matchAll(/\b(?:t|setStatus)\(\s*'([\w.]+)'/g)) used.add(match[1]);
       /* keys kept in variables, tables or conditionals: any quoted dotted name under a message group */
-      for (const m of code.matchAll(/'((?:[a-zA-Z]\w*\.)+\w+)'/g)) if (topLevel.has(m[1].split('.')[0])) used.add(m[1]);
+      for (const match of code.matchAll(/'((?:[a-zA-Z]\w*\.)+\w+)'/g)) if (topLevel.has(match[1].split('.')[0])) used.add(match[1]);
     }
     expect(used.size).toBeGreaterThan(100);
     for (const key of used) {
@@ -132,37 +132,40 @@ describe('printing notes', () => {
   for (const [code, messages] of Object.entries(LOCALES)) {
     for (const [name, variant] of Object.entries(variants)) {
       it(`"${code}": ${name}`, () => {
-        const p = variant.params;
-        const q = G.derive(p);
-        expect(q.uneven).toBe(!!variant.uneven);
-        const m = G.measure(G.buildBody(q, 96, 1), false);
+        const params = variant.params;
+        const shape = G.derive(params);
+        expect(shape.uneven).toBe(!!variant.uneven);
+        const measures = G.measure(G.buildBody(shape, 96, 1), false);
         const caps = {};
         for (const which of ['bottom', 'top']) {
-          const spec = G.capSpec(q, which);
+          const spec = G.capSpec(shape, which);
           if (spec) caps[which] = { spec };
         }
         const tr = translator(messages);
-        const ctx = { p, q, m, caps };
-        const lines = orcaLines(ctx, tr);
+        const { t, formatNumber } = tr;
+        const context = { params, shape, measures, caps };
+        const lines = orcaLines(context, tr);
         expect(lines.map(([title]) => title)).toEqual(variant.lines.map((key) => messages.orca[key]));
         for (const [title, text] of lines) {
           expect(title).not.toMatch(/[{}]/);
           expect(text).not.toMatch(/[{}]|undefined|NaN/);
         }
         const texts = lines.map(([, text]) => text);
-        for (const key of variant.texts || []) expect(texts).toContain(tr.t(key, {}));
-        if (q.shellThin) expect(texts).toContain(tr.t('orca.thinWall', { thin: tr.nf(q.shellWallMin, 2), wall: tr.nf(q.shellWall, 2) }));
-        if (variant.uneven && q.closed) {
-          const layers = Math.max(1, Math.round(q.baseT / q.lh));
-          expect(texts).toContain(tr.t('orca.baseClosedWalls', { layers, floor: tr.nf(q.baseT, 1) }));
+        for (const key of variant.texts || []) expect(texts).toContain(t(key, {}));
+        if (shape.shellThin) {
+          expect(texts).toContain(t('orca.thinWall', { thin: formatNumber(shape.shellWallMin, 2), wall: formatNumber(shape.shellWall, 2) }));
         }
-        const text = readme(ctx, ['body.stl'], 'parameters.json', tr);
+        if (variant.uneven && shape.closedBase) {
+          const layers = Math.max(1, Math.round(shape.baseThickness / shape.layerHeight));
+          expect(texts).toContain(t('orca.baseClosedWalls', { layers, floor: formatNumber(shape.baseThickness, 1) }));
+        }
+        const text = readme(context, ['body.stl'], 'parameters.json', tr);
         expect(text).toContain('parameters.json');
         expect(text).not.toMatch(/[{}]|undefined|NaN/);
-        const where = tr.t(q.dropBack ? 'editor.dropBack' : 'editor.dropFront', {});
+        const where = t(shape.dropBack ? 'editor.dropBack' : 'editor.dropFront', {});
         const contour = variant.uneven
-          ? tr.t('readme.contourUneven', { drop: tr.nf(q.drop), where, wall: tr.nf(q.shellWall, 2) })
-          : tr.t('readme.contour', {});
+          ? t('readme.contourUneven', { drop: formatNumber(shape.drop), where, wall: formatNumber(shape.shellWall, 2) })
+          : t('readme.contour', {});
         expect(text).toContain(contour);
       });
     }
