@@ -4,8 +4,8 @@ import './assets/theme.css';
 import App from './App.vue';
 import { i18n } from './i18n/index.js';
 
-/* Bootstrap light or dark theme following the system. If the page lives inside a viewer that pins
-   the theme with data-theme on the root (as Claude artifacts do), that value wins. */
+/* Bootstrap light or dark theme following the system. A data-theme attribute on the root, if
+   present, wins. */
 const root = document.documentElement;
 const dark = window.matchMedia('(prefers-color-scheme: dark)');
 function syncTheme() {

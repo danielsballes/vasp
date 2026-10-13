@@ -93,7 +93,7 @@ async function backupDesigns() {
   const file = t('files.designs');
   const blob = new Blob([JSON.stringify(serializeLibrary(designs.value), null, 2)], { type: 'application/json' });
   try {
-    await saveFile(blob, file);
+    saveFile(blob, file);
     setStatus('designs.backedUp', { file }, 'ok');
   } catch (error) {
     reportSaveError(error);

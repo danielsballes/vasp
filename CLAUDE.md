@@ -1,7 +1,7 @@
 # Vasp — guide for agents
 
-Vasp (by Ad Astra) is a free, browser-only parametric designer of single-wall parts (vases,
-lanterns, planters) for 3D printing in spiral vase mode. Users shape a part with presets, sliders
+Vasp (by Ad Astra) is a free, browser-only parametric designer of vases, lanterns and
+planters for 3D printing, in spiral vase mode or normal mode. Users shape a part with presets, sliders
 and a free profile, see layer by layer where the wall loses support, and export the STL files
 (body + threaded caps) with suggested Orca Slicer settings. It is free, with no account and no
 backend.
@@ -31,11 +31,11 @@ Run `pnpm lint` and `pnpm test` before every commit. Both must pass.
   (`tests/i18n.test.js` fails otherwise). Never put `{ } @ $ |` in message text.
 - **`src/core` is pure:** no Vue, no DOM, no vue-i18n. Functions that need text receive the
   translator as an argument. Keep new logic there when it can be tested in Node.
-- **Spiral vase mode invariants** (`src/core/geometry.js`):
-  - every body layer must stay one closed contour;
+- **Geometry invariants** (`src/core/geometry.js`):
+  - every body layer is one closed contour, except with an uneven mouth (below);
   - the wall tilt is limited by `shoulder`;
-  - threaded necks must stay round, which is why ribs fade near them.
-  - the one exception is an uneven mouth: in the free-profile editor each half has its own mouth
+  - threaded necks must stay round, which is why ribs fade near them;
+  - uneven mouth, a deliberate option for parts printed with normal walls: in the free-profile editor each half has its own mouth
     handle, and dragging one down sets `mouthDrop` (> 0 back lower, < 0 front lower, free profile
     only). The rim then drops on that side, and only the stretch above that side's highest point
     bends. The top layers become open arcs, the top thread is turned off, and the body is exported
