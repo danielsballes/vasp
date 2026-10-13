@@ -2,7 +2,7 @@
    vue-i18n treats { } @ $ | as special characters: do not use them as plain text. */
 export default {
   app: {
-    tagline: 'Ad Astra · piezas de una sola pared para el modo jarrón en espiral',
+    tagline: 'Ad Astra · jarrones, faroles y maceteros para impresión 3D',
     exportStl: 'Exportar STL',
     language: 'Idioma',
     preview: 'Vista previa',
@@ -214,11 +214,7 @@ export default {
     reset: 'Restablecer',
     building: 'Generando las mallas…',
     zipping: 'Comprimiendo…',
-    confirm: 'Listo: {size} MB. Confirme la descarga.',
     saved: 'Guardado {file} ({size} MB). Descomprima para sacar los STL.',
-    declined: 'Descarga cancelada.',
-    busy: 'Ya hay una descarga esperando confirmación. Respóndala y vuelva a intentar.',
-    tooLarge: 'El archivo es muy grande para este dispositivo. Exporte en calidad Normal o Borrador.',
     failed: 'No se pudo generar o guardar el archivo. Revise la consola del navegador para ver el detalle.',
     paramsLoaded: 'Parámetros cargados desde {file}.',
     badFile: 'Ese archivo no es de Vasp.',

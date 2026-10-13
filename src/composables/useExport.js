@@ -8,20 +8,15 @@ import { formatNumber, t } from '../i18n/index.js';
 import { useModel } from './useModel.js';
 import { useStatus } from './useStatus.js';
 
-/* Export: builds the STL files at the requested quality, packs them into a ZIP and hands it over.
-   Inside a Claude artifact the page cannot download on its own and uses the viewer's save function;
-   anywhere else (local development, your own server) it downloads directly.
+/* Export: builds the STL files at the requested quality, packs them into a ZIP and downloads it.
    File names and the notes file follow the interface language. */
 
 const { setStatus } = useStatus();
 const busy = ref(false);
 const pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-const claudeDownloads = typeof window !== 'undefined' && window.claude && typeof window.claude.use === 'function'
-  ? window.claude.use('downloads').catch(() => null)
-  : Promise.resolve(null);
-
-function saveLocally(blob, filename) {
+/* Downloads a file through a temporary link. */
+function saveFile(blob, filename) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url; link.download = filename;
@@ -29,24 +24,10 @@ function saveLocally(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
-/* Hands a file to the user. `onConfirm` runs when the viewer is about to ask for confirmation.
-   Rejects with an error carrying `code` when the viewer refuses the download. */
-async function saveFile(blob, filename, onConfirm) {
-  const downloads = await claudeDownloads;
-  if (!downloads) { saveLocally(blob, filename); return; }
-  if (onConfirm) onConfirm();
-  await downloads.save({ filename, data: blob });
-}
-
-/* Reports a failed download on the status line. */
+/* Reports a failed export on the status line. */
 function reportSaveError(error) {
-  const code = error && error.code;
-  const key = code === 'declined' ? 'exporting.declined'
-    : code === 'rate_limited' ? 'exporting.busy'
-    : code === 'too_large' ? 'exporting.tooLarge'
-    : 'exporting.failed';
-  if (!code) console.error(error);
-  setStatus(key, {}, code === 'declined' ? '' : 'bad');
+  console.error(error);
+  setStatus('exporting.failed', {}, 'bad');
 }
 
 async function exportAll() {
@@ -75,7 +56,7 @@ async function exportAll() {
     const blob = await zip(files);
     const file = t('files.zip', { tag });
     const size = formatNumber(blob.size / 1e6, 1);
-    await saveFile(blob, file, () => setStatus('exporting.confirm', { size }));
+    saveFile(blob, file);
     setStatus('exporting.saved', { file, size }, 'ok');
   } catch (error) {
     reportSaveError(error);

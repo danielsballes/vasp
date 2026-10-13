@@ -2,7 +2,7 @@
    vue-i18n treats { } @ $ | as special characters: do not use them as plain text. */
 export default {
   app: {
-    tagline: 'Ad Astra · single-wall parts for spiral vase mode',
+    tagline: 'Ad Astra · vases, lanterns and planters for 3D printing',
     exportStl: 'Export STL',
     language: 'Language',
     preview: 'Preview',
@@ -214,11 +214,7 @@ export default {
     reset: 'Reset',
     building: 'Building the meshes…',
     zipping: 'Compressing…',
-    confirm: 'Ready: {size} MB. Confirm the download.',
     saved: 'Saved {file} ({size} MB). Unzip it to get the STL files.',
-    declined: 'Download cancelled.',
-    busy: 'A download is already waiting for confirmation. Answer it and try again.',
-    tooLarge: 'The file is too large for this device. Export at Normal or Draft quality.',
     failed: 'The file could not be built or saved. Check the browser console for details.',
     paramsLoaded: 'Parameters loaded from {file}.',
     badFile: 'That file is not a Vasp file.',
